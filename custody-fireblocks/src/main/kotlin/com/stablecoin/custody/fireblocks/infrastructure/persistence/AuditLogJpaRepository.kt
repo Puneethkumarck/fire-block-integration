@@ -4,5 +4,5 @@ import org.springframework.data.jpa.repository.JpaRepository
 import java.util.UUID
 
 internal interface AuditLogJpaRepository : JpaRepository<AuditLogEntity, UUID> {
-    fun findByResourceId(resourceId: String): List<AuditLogEntity>
+    fun findByResourceIdOrderByTimestampAscIdAsc(resourceId: String): List<AuditLogEntity>
 }

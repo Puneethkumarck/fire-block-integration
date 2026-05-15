@@ -16,6 +16,7 @@ data class AuditLog(
     init {
         require(actor.isNotBlank()) { "actor must not be blank" }
         require(resourceId.isNotBlank()) { "resourceId must not be blank" }
+        require(fireblocksRequestId == null || fireblocksRequestId.isNotBlank()) { "fireblocksRequestId must not be blank" }
     }
 
     companion object {

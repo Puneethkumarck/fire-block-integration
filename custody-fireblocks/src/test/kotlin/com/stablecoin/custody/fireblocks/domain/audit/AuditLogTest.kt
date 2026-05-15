@@ -80,4 +80,12 @@ class AuditLogTest {
             .isInstanceOf(IllegalArgumentException::class.java)
             .hasMessageContaining("resourceId must not be blank")
     }
+
+    @Test
+    fun `should reject blank fireblocksRequestId`() {
+        // when/then
+        assertThatThrownBy { anAuditLog(fireblocksRequestId = " ") }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("fireblocksRequestId must not be blank")
+    }
 }

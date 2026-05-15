@@ -10,7 +10,10 @@ internal class AuditLogRepositoryAdapter(
 ) : AuditLogRepository {
     override fun save(auditLog: AuditLog): AuditLog = auditLog.toEntity().let { jpaRepository.saveAndFlush(it) }.toDomain()
 
-    override fun findByResourceId(resourceId: String): List<AuditLog> = jpaRepository.findByResourceId(resourceId).map { it.toDomain() }
+    override fun findByResourceId(resourceId: String): List<AuditLog> =
+        jpaRepository
+            .findByResourceIdOrderByTimestampAscIdAsc(resourceId)
+            .map { it.toDomain() }
 
     fun AuditLog.toEntity() =
         AuditLogEntity(
