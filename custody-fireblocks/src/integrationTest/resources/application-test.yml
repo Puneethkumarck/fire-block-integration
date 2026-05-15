@@ -15,6 +15,11 @@ spring:
     consumer:
       auto-offset-reset: earliest
 
+rate-limit:
+  capacity: 3
+  refill-tokens: 3
+  refill-duration: 1m
+
 server:
   port: 0
 

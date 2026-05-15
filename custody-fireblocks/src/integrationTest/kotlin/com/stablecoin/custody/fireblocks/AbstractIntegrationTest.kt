@@ -53,6 +53,9 @@ abstract class AbstractIntegrationTest {
             LocalStackContainer(DockerImageName.parse("localstack/localstack:4.4.0"))
                 .withServices(LocalStackContainer.Service.SECRETSMANAGER)
 
+        @JvmStatic
+        val webhookKeyPair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
+
         init {
             postgres.start()
             kafka.start()
@@ -73,9 +76,8 @@ abstract class AbstractIntegrationTest {
                         ),
                     ).build()
 
-            val keyPair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
-            val privateKeyBase64 = Base64.getEncoder().encodeToString(keyPair.private.encoded)
-            val publicKeyBase64 = Base64.getEncoder().encodeToString(keyPair.public.encoded)
+            val privateKeyBase64 = Base64.getEncoder().encodeToString(webhookKeyPair.private.encoded)
+            val publicKeyBase64 = Base64.getEncoder().encodeToString(webhookKeyPair.public.encoded)
 
             client.use {
                 it.createSecret(
