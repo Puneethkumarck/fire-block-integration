@@ -1,10 +1,13 @@
 package com.stablecoin.custody.fireblocks.domain.transaction
 
+import com.stablecoin.custody.fireblocks.domain.exception.InvalidTransactionStateException
 import com.stablecoin.custody.fireblocks.test.fixtures.aSubmitTransactionCommand
 import com.stablecoin.custody.fireblocks.test.fixtures.aTransaction
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.math.BigDecimal
 
 class TransactionTest {
@@ -159,5 +162,55 @@ class TransactionTest {
 
         // then
         assertThat(result.treatAsGrossAmount).isFalse()
+    }
+
+    @ParameterizedTest
+    @EnumSource(TransactionStatus::class, names = ["CREATED"], mode = EnumSource.Mode.EXCLUDE)
+    fun `should reject markSubmitted from non-CREATED status`(sourceStatus: TransactionStatus) {
+        // given
+        val transaction = aTransaction(status = sourceStatus)
+
+        // when/then
+        assertThatThrownBy { transaction.markSubmitted("fb-tx-123") }
+            .isInstanceOf(InvalidTransactionStateException::class.java)
+    }
+
+    @ParameterizedTest
+    @EnumSource(TransactionStatus::class, names = ["CONFIRMED", "FAILED"])
+    fun `should reject markFailed from terminal status`(terminalStatus: TransactionStatus) {
+        // given
+        val transaction = aTransaction(status = terminalStatus)
+
+        // when/then
+        assertThatThrownBy { transaction.markFailed() }
+            .isInstanceOf(InvalidTransactionStateException::class.java)
+    }
+
+    @ParameterizedTest
+    @EnumSource(TransactionStatus::class, names = ["CONFIRMED", "FAILED"])
+    fun `should reject updateStatus from terminal status`(terminalStatus: TransactionStatus) {
+        // given
+        val transaction = aTransaction(status = terminalStatus)
+
+        // when/then
+        assertThatThrownBy {
+            transaction.updateStatus(
+                newStatus = TransactionStatus.PROCESSING,
+                fireblocksStatus = "PENDING_SIGNATURE",
+            )
+        }.isInstanceOf(InvalidTransactionStateException::class.java)
+    }
+
+    @Test
+    fun `should allow markFailed from any non-terminal status`() {
+        // given
+        val nonTerminalStatuses = TransactionStatus.entries.filter { !it.terminal }
+
+        // when/then
+        nonTerminalStatuses.forEach { sourceStatus ->
+            val transaction = aTransaction(status = sourceStatus)
+            val result = transaction.markFailed()
+            assertThat(result.status).isEqualTo(TransactionStatus.FAILED)
+        }
     }
 }

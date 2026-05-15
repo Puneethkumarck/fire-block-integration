@@ -1,5 +1,6 @@
 package com.stablecoin.custody.fireblocks.domain.transaction
 
+import com.stablecoin.custody.fireblocks.domain.exception.InvalidTransactionStateException
 import com.stablecoin.custody.fireblocks.domain.shared.StateProvider
 import java.math.BigDecimal
 import java.time.Instant
@@ -35,6 +36,9 @@ data class Transaction(
     override fun currentState() = status
 
     fun markSubmitted(fireblocksTransactionId: String): Transaction {
+        if (status != TransactionStatus.CREATED) {
+            throw InvalidTransactionStateException(id.value.toString(), status.name, TransactionStatus.SUBMITTED.name)
+        }
         require(fireblocksTransactionId.isNotBlank()) { "fireblocksTransactionId must not be blank" }
         return copy(
             fireblocksTransactionId = fireblocksTransactionId,
@@ -43,24 +47,35 @@ data class Transaction(
         )
     }
 
-    fun markFailed() =
-        copy(
+    fun markFailed(): Transaction {
+        guardTransition(TransactionStatus.FAILED)
+        return copy(
             status = TransactionStatus.FAILED,
             updatedAt = Instant.now(),
         )
+    }
 
     fun updateStatus(
         newStatus: TransactionStatus,
         fireblocksStatus: String,
         fireblocksSubStatus: String? = null,
         txHash: String? = null,
-    ) = copy(
-        status = newStatus,
-        fireblocksStatus = fireblocksStatus,
-        fireblocksSubStatus = fireblocksSubStatus,
-        txHash = txHash ?: this.txHash,
-        updatedAt = Instant.now(),
-    )
+    ): Transaction {
+        guardTransition(newStatus)
+        return copy(
+            status = newStatus,
+            fireblocksStatus = fireblocksStatus,
+            fireblocksSubStatus = fireblocksSubStatus,
+            txHash = txHash ?: this.txHash,
+            updatedAt = Instant.now(),
+        )
+    }
+
+    private fun guardTransition(target: TransactionStatus) {
+        if (status.terminal) {
+            throw InvalidTransactionStateException(id.value.toString(), status.name, target.name)
+        }
+    }
 
     companion object {
         fun create(
