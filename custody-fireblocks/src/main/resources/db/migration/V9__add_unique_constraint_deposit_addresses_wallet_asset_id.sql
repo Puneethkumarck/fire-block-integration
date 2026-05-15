@@ -1,0 +1,2 @@
+DROP INDEX idx_deposit_addresses_wallet_asset_id;
+ALTER TABLE deposit_addresses ADD CONSTRAINT uq_deposit_addresses_wallet_asset_id UNIQUE (wallet_asset_id);
