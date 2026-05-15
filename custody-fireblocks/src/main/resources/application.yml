@@ -32,6 +32,16 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${ZITADEL_ISSUER_URI:http://localhost:8085}
+
+rate-limit:
+  capacity: 100
+  refill-tokens: 100
+  refill-duration: 1m
 
 fireblocks:
   api:
