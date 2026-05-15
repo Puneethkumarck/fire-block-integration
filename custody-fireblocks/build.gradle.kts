@@ -5,6 +5,7 @@ plugins {
     id("org.springframework.boot")
     id("io.spring.dependency-management")
     `java-test-fixtures`
+    jacoco
 }
 
 kotlin {
@@ -93,4 +94,64 @@ val businessTest by tasks.registering(Test::class) {
 
 tasks.named("check") {
     dependsOn(integrationTest, businessTest)
+}
+
+jacoco {
+    toolVersion = "0.8.13"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test, integrationTest, businessTest)
+
+    executionData.setFrom(
+        fileTree(layout.buildDirectory) {
+            include("jacoco/*.exec")
+        },
+    )
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(
+                        "**/CustodyFireblocksApplication*",
+                        "**/Q*",
+                        "**/*MapperImpl*",
+                        "**/*\$*",
+                    )
+                }
+            },
+        ),
+    )
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+
+    executionData.setFrom(
+        fileTree(layout.buildDirectory) {
+            include("jacoco/*.exec")
+        },
+    )
+
+    classDirectories.setFrom(tasks.jacocoTestReport.get().classDirectories)
+
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                minimum = "0.80".toBigDecimal()
+            }
+            limit {
+                counter = "BRANCH"
+                minimum = "0.70".toBigDecimal()
+            }
+        }
+    }
 }

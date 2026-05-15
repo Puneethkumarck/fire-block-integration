@@ -8,13 +8,13 @@ import org.springframework.web.service.invoker.HttpServiceProxyFactory
 
 @AutoConfiguration
 class CustodyClientAutoConfiguration {
-
     @Bean
     fun custodyClient(restClientBuilder: RestClient.Builder): CustodyClient {
         val restClient = restClientBuilder.build()
-        val factory = HttpServiceProxyFactory
-            .builderFor(RestClientAdapter.create(restClient))
-            .build()
+        val factory =
+            HttpServiceProxyFactory
+                .builderFor(RestClientAdapter.create(restClient))
+                .build()
         return factory.createClient(CustodyClient::class.java)
     }
 }
