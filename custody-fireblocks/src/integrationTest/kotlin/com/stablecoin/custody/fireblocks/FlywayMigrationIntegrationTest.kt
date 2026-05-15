@@ -5,12 +5,10 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.test.context.ActiveProfiles
 import java.math.BigDecimal
 import java.time.OffsetDateTime
 import java.util.UUID
 
-@ActiveProfiles("flyway")
 class FlywayMigrationIntegrationTest : AbstractIntegrationTest() {
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
