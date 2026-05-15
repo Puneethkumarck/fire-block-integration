@@ -1,0 +1,25 @@
+server:
+  port: 8080
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+spring:
+  application:
+    name: custody-fireblocks
+  datasource:
+    url: jdbc:postgresql://localhost:5432/custody_fireblocks
+    username: custody
+    password: custody
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration

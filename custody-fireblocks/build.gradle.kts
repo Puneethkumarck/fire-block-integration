@@ -1,0 +1,96 @@
+plugins {
+    kotlin("jvm")
+    kotlin("plugin.spring")
+    kotlin("plugin.jpa")
+    id("org.springframework.boot")
+    id("io.spring.dependency-management")
+    `java-test-fixtures`
+}
+
+kotlin {
+    jvmToolchain(25)
+    compilerOptions {
+        freeCompilerArgs.addAll("-Xjsr305=strict")
+    }
+}
+
+sourceSets {
+    create("integrationTest") {
+        compileClasspath += sourceSets.main.get().output + sourceSets["testFixtures"].output
+        runtimeClasspath += sourceSets.main.get().output + sourceSets["testFixtures"].output
+    }
+    create("businessTest") {
+        compileClasspath += sourceSets.main.get().output + sourceSets["testFixtures"].output
+        runtimeClasspath += sourceSets.main.get().output + sourceSets["testFixtures"].output
+    }
+}
+
+val integrationTestImplementation by configurations.getting {
+    extendsFrom(configurations.testImplementation.get())
+}
+val integrationTestRuntimeOnly by configurations.getting {
+    extendsFrom(configurations.testRuntimeOnly.get())
+}
+val businessTestImplementation by configurations.getting {
+    extendsFrom(configurations.testImplementation.get())
+}
+val businessTestRuntimeOnly by configurations.getting {
+    extendsFrom(configurations.testRuntimeOnly.get())
+}
+
+dependencies {
+    implementation(project(":custody-fireblocks-api"))
+
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.kafka:spring-kafka")
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql")
+    implementation("org.postgresql:postgresql")
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.4.0")
+
+    testImplementation("org.springframework.boot:spring-boot-starter-test") {
+        exclude(group = "org.mockito")
+    }
+    testImplementation("io.mockk:mockk:1.13.16")
+    testImplementation("com.ninja-squad:springmockk:4.0.2")
+    testImplementation("com.tngtech.archunit:archunit-junit5:1.4.0")
+
+    testFixturesImplementation("org.springframework.boot:spring-boot-starter-test") {
+        exclude(group = "org.mockito")
+    }
+
+    integrationTestImplementation("org.testcontainers:junit-jupiter")
+    integrationTestImplementation("org.testcontainers:postgresql")
+    integrationTestImplementation("org.testcontainers:kafka")
+    integrationTestImplementation("org.wiremock:wiremock-standalone:3.12.1")
+    integrationTestImplementation(testFixtures(project))
+
+    businessTestImplementation(project(":custody-fireblocks-client"))
+    businessTestImplementation("org.testcontainers:junit-jupiter")
+    businessTestImplementation("org.testcontainers:postgresql")
+    businessTestImplementation("org.testcontainers:kafka")
+    businessTestImplementation("org.wiremock:wiremock-standalone:3.12.1")
+    businessTestImplementation(testFixtures(project))
+
+    developmentOnly("org.springframework.boot:spring-boot-devtools")
+}
+
+val integrationTest by tasks.registering(Test::class) {
+    testClassesDirs = sourceSets["integrationTest"].output.classesDirs
+    classpath = sourceSets["integrationTest"].runtimeClasspath
+    useJUnitPlatform()
+}
+
+val businessTest by tasks.registering(Test::class) {
+    testClassesDirs = sourceSets["businessTest"].output.classesDirs
+    classpath = sourceSets["businessTest"].runtimeClasspath
+    useJUnitPlatform()
+}
+
+tasks.named("check") {
+    dependsOn(integrationTest, businessTest)
+}
