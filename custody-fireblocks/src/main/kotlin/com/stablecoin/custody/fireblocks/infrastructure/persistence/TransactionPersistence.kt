@@ -1,5 +1,6 @@
 package com.stablecoin.custody.fireblocks.infrastructure.persistence
 
+import com.stablecoin.custody.fireblocks.domain.shared.Precision
 import com.stablecoin.custody.fireblocks.domain.transaction.FeeLevel
 import com.stablecoin.custody.fireblocks.domain.transaction.Transaction
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionId
@@ -45,7 +46,7 @@ private class TransactionEntity(
     val currency: String,
     @Column(name = "protocol", nullable = false)
     val protocol: String,
-    @Column(name = "amount", nullable = false, precision = 36, scale = 18)
+    @Column(name = "amount", nullable = false, precision = Precision.PRECISION, scale = Precision.SCALE)
     val amount: BigDecimal,
     @Column(name = "source_vault_id", nullable = false)
     val sourceVaultId: String,
