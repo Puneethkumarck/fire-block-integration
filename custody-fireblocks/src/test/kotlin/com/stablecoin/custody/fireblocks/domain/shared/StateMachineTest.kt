@@ -50,7 +50,8 @@ class StateMachineTest {
         // given
         val entity = TestEntity(id = "e-1", status = Status.FAILED)
 
-        // when/then
+        // when
+        // then
         assertThatThrownBy { stateMachine.transition(entity, Status.ACTIVE) }
             .isInstanceOf(TestTransitionException::class.java)
             .hasMessageContaining("Cannot transition e-1 from FAILED to ACTIVE")
@@ -61,7 +62,8 @@ class StateMachineTest {
         // given
         val entity = TestEntity(id = "e-2", status = Status.ACTIVE)
 
-        // when/then
+        // when
+        // then
         assertThatThrownBy { stateMachine.transition(entity, Status.PENDING) }
             .isInstanceOf(TestTransitionException::class.java)
     }
@@ -71,7 +73,8 @@ class StateMachineTest {
         // given
         val entity = TestEntity(id = "e-3", status = Status.FAILED)
 
-        // when/then
+        // when
+        // then
         assertThatThrownBy { stateMachine.transition(entity, Status.PENDING) }
             .isInstanceOf(TestTransitionException::class.java)
             .satisfies({ ex ->

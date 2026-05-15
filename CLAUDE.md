@@ -36,6 +36,7 @@ Kotlin/Spring Boot custody integration service for Fireblocks (crypto wallet inf
 ```
 
 Run a single test class:
+
 ```bash
 ./gradlew test --tests "com.stablecoin.custody.fireblocks.SomeTest"
 ./gradlew integrationTest --tests "com.stablecoin.custody.fireblocks.SomeIntegrationTest"
@@ -53,7 +54,7 @@ Run a single test class:
 
 Hexagonal architecture under `com.stablecoin.custody.fireblocks`:
 
-- **`domain/`** — Pure business logic, models, ports. MUST NOT import from `application` or `infrastructure`. No Spring annotations except `@Component`, `@Service`, `@Transactional` for DI/tx.
+- **`domain/`** — Pure business logic, models, ports. MUST NOT import from `application` or `infrastructure`. Domain models, exceptions, and value objects must be framework-free. Only `@Service` and `@Transactional` are allowed in domain service classes for DI/tx.
 - **`application/`** — Inbound adapters (controllers, Kafka listeners, jobs). Depends on `domain`.
 - **`infrastructure/`** — Outbound adapters (JPA, HTTP clients, Kafka publishers). Implements domain ports. Depends on `domain`.
 
