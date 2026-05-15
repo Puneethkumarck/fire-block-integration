@@ -56,7 +56,7 @@ dependencies {
     implementation(platform("software.amazon.awssdk:bom:2.31.62"))
     implementation("software.amazon.awssdk:secretsmanager")
     implementation("io.jsonwebtoken:jjwt-api:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
