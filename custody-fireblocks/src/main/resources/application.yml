@@ -34,6 +34,10 @@ spring:
     locations: classpath:db/migration
 
 fireblocks:
+  api:
+    base-url: ${FIREBLOCKS_API_URL:https://sandbox-api.fireblocks.io}
+    connect-timeout: 5s
+    read-timeout: 30s
   secrets:
     private-key-name: fireblocks/private-key
     api-key-name: fireblocks/api-key

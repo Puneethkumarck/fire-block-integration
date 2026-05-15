@@ -23,6 +23,10 @@ management:
     port: -1
 
 fireblocks:
+  api:
+    base-url: http://localhost:${wiremock.server.port:8089}
+    connect-timeout: 5s
+    read-timeout: 5s
   secrets:
     private-key-name: fireblocks/private-key
     api-key-name: fireblocks/api-key

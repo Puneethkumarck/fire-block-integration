@@ -1,6 +1,6 @@
 package com.stablecoin.custody.fireblocks.infrastructure.secrets
 
-import org.springframework.beans.factory.annotation.Value
+import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.config.FireblocksProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient
@@ -14,23 +14,22 @@ import java.util.Base64
 
 @Configuration
 class SecretsConfiguration(
-    @param:Value("\${fireblocks.secrets.private-key-name}") private val privateKeyName: String,
-    @param:Value("\${fireblocks.secrets.api-key-name}") private val apiKeyName: String,
-    @param:Value("\${fireblocks.secrets.webhook-public-key-name}") private val webhookPublicKeyName: String,
+    private val properties: FireblocksProperties,
 ) {
     @Bean
     fun fireblocksPrivateKey(secretsManagerClient: SecretsManagerClient): RSAPrivateKey {
-        val secretValue = getSecretValue(secretsManagerClient, privateKeyName)
-        return parsePrivateKey(privateKeyName, secretValue)
+        val secretValue = getSecretValue(secretsManagerClient, properties.secrets.privateKeyName)
+        return parsePrivateKey(properties.secrets.privateKeyName, secretValue)
     }
 
     @Bean
-    fun fireblocksApiKey(secretsManagerClient: SecretsManagerClient): String = getSecretValue(secretsManagerClient, apiKeyName)
+    fun fireblocksApiKey(secretsManagerClient: SecretsManagerClient): String =
+        getSecretValue(secretsManagerClient, properties.secrets.apiKeyName)
 
     @Bean
     fun fireblocksWebhookPublicKey(secretsManagerClient: SecretsManagerClient): RSAPublicKey {
-        val secretValue = getSecretValue(secretsManagerClient, webhookPublicKeyName)
-        return parsePublicKey(webhookPublicKeyName, secretValue)
+        val secretValue = getSecretValue(secretsManagerClient, properties.secrets.webhookPublicKeyName)
+        return parsePublicKey(properties.secrets.webhookPublicKeyName, secretValue)
     }
 
     companion object {
