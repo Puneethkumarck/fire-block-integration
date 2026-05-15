@@ -1,7 +1,7 @@
 package com.stablecoin.custody.fireblocks.infrastructure.persistence
 
 import com.stablecoin.custody.fireblocks.AbstractIntegrationTest
-import com.stablecoin.custody.fireblocks.domain.audit.AuditRepository
+import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import com.stablecoin.custody.fireblocks.test.fixtures.anAuditLog
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
@@ -14,7 +14,7 @@ import java.util.UUID
 @Transactional
 class AuditLogPersistenceIntegrationTest : AbstractIntegrationTest() {
     @Autowired
-    private lateinit var auditRepository: AuditRepository
+    private lateinit var auditRepository: AuditLogRepository
 
     @Autowired
     private lateinit var entityManager: EntityManager

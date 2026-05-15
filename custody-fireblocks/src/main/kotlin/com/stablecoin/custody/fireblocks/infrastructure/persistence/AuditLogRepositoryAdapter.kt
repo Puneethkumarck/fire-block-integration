@@ -1,13 +1,13 @@
 package com.stablecoin.custody.fireblocks.infrastructure.persistence
 
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLog
-import com.stablecoin.custody.fireblocks.domain.audit.AuditRepository
+import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import org.springframework.stereotype.Component
 
 @Component
 internal class AuditLogRepositoryAdapter(
     private val jpaRepository: AuditLogJpaRepository,
-) : AuditRepository {
+) : AuditLogRepository {
     override fun save(auditLog: AuditLog): AuditLog = auditLog.toEntity().let { jpaRepository.saveAndFlush(it) }.toDomain()
 
     override fun findByResourceId(resourceId: String): List<AuditLog> = jpaRepository.findByResourceId(resourceId).map { it.toDomain() }

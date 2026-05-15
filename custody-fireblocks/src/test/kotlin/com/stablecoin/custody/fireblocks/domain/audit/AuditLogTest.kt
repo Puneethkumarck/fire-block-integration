@@ -39,7 +39,7 @@ class AuditLogTest {
     }
 
     @Test
-    fun `should create audit log with null details`() {
+    fun `should create audit log with null details and fireblocksRequestId by default`() {
         // when
         val result =
             AuditLog.create(
@@ -50,28 +50,19 @@ class AuditLogTest {
             )
 
         // then
-        assertThat(result)
-            .usingRecursiveComparison()
-            .comparingOnlyFields("details")
-            .isEqualTo(anAuditLog(details = null))
-    }
-
-    @Test
-    fun `should create audit log with null fireblocksRequestId`() {
-        // when
-        val result =
-            AuditLog.create(
-                operation = AuditOperation.BALANCE_QUERIED,
+        val expected =
+            anAuditLog(
+                operation = AuditOperation.TRANSACTION_SUBMITTED,
                 actor = "system",
-                resourceId = "wallet-789",
+                resourceId = "tx-123",
                 status = AuditStatus.SUCCESS,
+                fireblocksRequestId = null,
+                details = null,
             )
-
-        // then
         assertThat(result)
             .usingRecursiveComparison()
-            .comparingOnlyFields("fireblocksRequestId")
-            .isEqualTo(anAuditLog(fireblocksRequestId = null))
+            .ignoringFields("id", "timestamp")
+            .isEqualTo(expected)
     }
 
     @Test
