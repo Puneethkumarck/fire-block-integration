@@ -32,3 +32,14 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+fireblocks:
+  secrets:
+    private-key-name: fireblocks/private-key
+    api-key-name: fireblocks/api-key
+    webhook-public-key-name: fireblocks/webhook-public-key
+
+aws:
+  secretsmanager:
+    endpoint: ${AWS_SECRETSMANAGER_ENDPOINT:}
+    region: ${AWS_REGION:us-east-1}
