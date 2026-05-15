@@ -3,6 +3,7 @@ package com.stablecoin.custody.fireblocks.domain.exception
 import com.stablecoin.custody.fireblocks.domain.shared.CustodyException
 import com.stablecoin.custody.fireblocks.domain.shared.ErrorCode
 
-class VaultNotActiveException(
+class InsufficientBalanceException(
     vaultId: String,
-) : CustodyException(ErrorCode.VAULT_NOT_ACTIVE, "Vault $vaultId is not active")
+    assetId: String,
+) : CustodyException(ErrorCode.INSUFFICIENT_BALANCE, "Insufficient balance for asset $assetId in vault $vaultId")

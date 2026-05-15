@@ -3,6 +3,6 @@ package com.stablecoin.custody.fireblocks.domain.exception
 import com.stablecoin.custody.fireblocks.domain.shared.CustodyException
 import com.stablecoin.custody.fireblocks.domain.shared.ErrorCode
 
-class VaultNotActiveException(
-    vaultId: String,
-) : CustodyException(ErrorCode.VAULT_NOT_ACTIVE, "Vault $vaultId is not active")
+class TransactionDuplicateException(
+    externalTxId: String,
+) : CustodyException(ErrorCode.TRANSACTION_DUPLICATE, "Transaction already exists with externalTxId: $externalTxId")
