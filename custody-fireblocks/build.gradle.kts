@@ -41,7 +41,7 @@ val businessTestRuntimeOnly by configurations.getting {
 
 dependencies {
     implementation(project(":custody-fireblocks-api"))
-    implementation(platform("org.testcontainers:testcontainers-bom:1.21.0"))
+    implementation(platform("org.testcontainers:testcontainers-bom:1.21.4"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
