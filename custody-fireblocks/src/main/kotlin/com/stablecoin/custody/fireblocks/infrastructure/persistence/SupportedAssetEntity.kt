@@ -13,11 +13,11 @@ internal class SupportedAssetEntity(
     @Id
     @Column(name = "id", nullable = false)
     val id: UUID,
-    @Column(name = "currency", nullable = false)
+    @Column(name = "currency", nullable = false, length = 10)
     val currency: String,
-    @Column(name = "protocol", nullable = false)
+    @Column(name = "protocol", nullable = false, length = 20)
     val protocol: String,
-    @Column(name = "fireblocks_asset_id", nullable = false, unique = true)
+    @Column(name = "fireblocks_asset_id", nullable = false, unique = true, length = 50)
     val fireblocksAssetId: String,
     @Column(name = "taggable", nullable = false)
     val taggable: Boolean,

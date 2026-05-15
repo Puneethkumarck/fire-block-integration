@@ -14,7 +14,7 @@ internal class DepositAddressEntity(
     @Id
     @Column(name = "id", nullable = false)
     val id: UUID,
-    @Column(name = "wallet_asset_id", nullable = false)
+    @Column(name = "wallet_asset_id", nullable = false, unique = true)
     val walletAssetId: UUID,
     @Column(name = "address", nullable = false)
     val address: String,
