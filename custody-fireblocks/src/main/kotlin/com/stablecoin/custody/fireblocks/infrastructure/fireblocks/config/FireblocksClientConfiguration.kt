@@ -32,16 +32,16 @@ class FireblocksClientConfiguration(
     }
 
     @Bean
-    fun fireblocksVaultClient(fireblocksRestClient: RestClient): FireblocksVaultClient =
+    fun fireblocksHttpServiceProxyFactory(fireblocksRestClient: RestClient): HttpServiceProxyFactory =
         HttpServiceProxyFactory
             .builderFor(RestClientAdapter.create(fireblocksRestClient))
             .build()
-            .createClient(FireblocksVaultClient::class.java)
 
     @Bean
-    fun fireblocksTransactionClient(fireblocksRestClient: RestClient): FireblocksTransactionClient =
-        HttpServiceProxyFactory
-            .builderFor(RestClientAdapter.create(fireblocksRestClient))
-            .build()
-            .createClient(FireblocksTransactionClient::class.java)
+    fun fireblocksVaultClient(fireblocksHttpServiceProxyFactory: HttpServiceProxyFactory): FireblocksVaultClient =
+        fireblocksHttpServiceProxyFactory.createClient(FireblocksVaultClient::class.java)
+
+    @Bean
+    fun fireblocksTransactionClient(fireblocksHttpServiceProxyFactory: HttpServiceProxyFactory): FireblocksTransactionClient =
+        fireblocksHttpServiceProxyFactory.createClient(FireblocksTransactionClient::class.java)
 }

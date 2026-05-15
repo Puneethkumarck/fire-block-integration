@@ -26,6 +26,8 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import org.springframework.web.client.HttpClientErrorException
+import org.springframework.web.client.HttpServerErrorException
 import org.springframework.web.client.ResourceAccessException
 
 class FireblocksTransactionClientIntegrationTest : AbstractIntegrationTest() {
@@ -185,6 +187,55 @@ class FireblocksTransactionClientIntegrationTest : AbstractIntegrationTest() {
                 high = FireblocksFeeLevel(networkFee = "0.001", gasPrice = "30"),
             )
         assertThat(result).usingRecursiveComparison().isEqualTo(expected)
+    }
+
+    @Test
+    fun `should handle Fireblocks 400 error`() {
+        // given
+        wireMock.stubFor(
+            post(urlPathEqualTo("/v1/transactions"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(400)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"message":"Invalid request","code":1000}"""),
+                ),
+        )
+
+        val request =
+            CreateTransactionRequest(
+                externalTxId = "ext-bad",
+                source = TransferPeerPath(type = "VAULT_ACCOUNT", id = "0"),
+                destination =
+                    DestinationTransferPeerPath(
+                        type = "ONE_TIME_ADDRESS",
+                        oneTimeAddress = OneTimeAddress(address = "0xabc"),
+                    ),
+                assetId = "ETH_TEST",
+                amount = "0.001",
+            )
+
+        // when/then
+        assertThatThrownBy { transactionClient.createTransaction(request) }
+            .isInstanceOf(HttpClientErrorException::class.java)
+    }
+
+    @Test
+    fun `should handle Fireblocks 500 error`() {
+        // given
+        wireMock.stubFor(
+            get(urlPathEqualTo("/v1/transactions/tx-error"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(500)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"message":"Internal server error"}"""),
+                ),
+        )
+
+        // when/then
+        assertThatThrownBy { transactionClient.getTransaction("tx-error") }
+            .isInstanceOf(HttpServerErrorException::class.java)
     }
 
     @Test

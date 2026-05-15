@@ -245,6 +245,7 @@ class FireblocksVaultClientIntegrationTest : AbstractIntegrationTest() {
         val result = vaultClient.getVault("789")
 
         // then
-        assertThat(result.id).isEqualTo("789")
+        val expected = FireblocksVaultAccountResponse(id = "789", name = "Auth Test")
+        assertThat(result).usingRecursiveComparison().isEqualTo(expected)
     }
 }
