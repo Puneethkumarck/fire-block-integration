@@ -41,6 +41,7 @@ val businessTestRuntimeOnly by configurations.getting {
 
 dependencies {
     implementation(project(":custody-fireblocks-api"))
+    implementation(platform("org.testcontainers:testcontainers-bom:1.21.0"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -51,7 +52,7 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.postgresql:postgresql")
-    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.4.0")
+    implementation("io.github.resilience4j:resilience4j-spring-boot4:2.4.0")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
         exclude(group = "org.mockito")
@@ -67,6 +68,9 @@ dependencies {
     integrationTestImplementation("org.testcontainers:junit-jupiter")
     integrationTestImplementation("org.testcontainers:postgresql")
     integrationTestImplementation("org.testcontainers:kafka")
+    integrationTestImplementation("org.testcontainers:localstack")
+    integrationTestImplementation("org.springframework.boot:spring-boot-testcontainers")
+    integrationTestImplementation("org.springframework.security:spring-security-test")
     integrationTestImplementation("org.wiremock:wiremock-standalone:3.12.1")
     integrationTestImplementation(testFixtures(project))
 
@@ -74,6 +78,9 @@ dependencies {
     businessTestImplementation("org.testcontainers:junit-jupiter")
     businessTestImplementation("org.testcontainers:postgresql")
     businessTestImplementation("org.testcontainers:kafka")
+    businessTestImplementation("org.testcontainers:localstack")
+    businessTestImplementation("org.springframework.boot:spring-boot-testcontainers")
+    businessTestImplementation("org.springframework.security:spring-security-test")
     businessTestImplementation("org.wiremock:wiremock-standalone:3.12.1")
     businessTestImplementation(testFixtures(project))
 
