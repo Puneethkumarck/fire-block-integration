@@ -1,0 +1,22 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  flyway:
+    enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8085
+  kafka:
+    consumer:
+      auto-offset-reset: earliest
+
+server:
+  port: 0
+
+management:
+  server:
+    port: -1
