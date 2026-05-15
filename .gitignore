@@ -1,25 +1,38 @@
-# Planning documents (not shipped with code)
-docs/
-issues/
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
 
-# macOS
-.DS_Store
+# Kotlin / JVM
+.kotlin/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
 
 # IDE
 .idea/
 *.iml
 .vscode/
+*.swp
+out/
 
-# Gradle
-.gradle/
-build/
-!gradle/wrapper/gradle-wrapper.jar
+# macOS
+.DS_Store
 
-# Kotlin
-*.class
-*.jar
-*.war
-
-# Environment
+# Environment and secrets
 .env
 .env.local
+.env.production
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+
+# Planning documents (not shipped with code)
+docs/
+issues/
