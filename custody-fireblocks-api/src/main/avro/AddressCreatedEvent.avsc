@@ -1,0 +1,13 @@
+{
+  "namespace": "com.stablecoin.custody.avro",
+  "type": "record",
+  "name": "AddressCreatedEvent",
+  "fields": [
+    {"name": "depositAddressId", "type": "string"},
+    {"name": "walletAssetId", "type": "string"},
+    {"name": "vaultId", "type": "string"},
+    {"name": "address", "type": "string"},
+    {"name": "tag", "type": ["null", "string"], "default": null},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

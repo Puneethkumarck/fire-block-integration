@@ -29,6 +29,18 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: custody-fireblocks
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.stablecoin.custody.fireblocks.domain.event
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -57,3 +69,19 @@ aws:
   secretsmanager:
     endpoint: ${AWS_SECRETSMANAGER_ENDPOINT:}
     region: ${AWS_REGION:us-east-1}
+
+namastack:
+  outbox:
+    poll-interval: 500
+    batch-size: 20
+    jdbc:
+      table-prefix: "custody_"
+      schema-initialization:
+        enabled: false
+    retry:
+      policy: exponential
+      max-retries: 5
+      exponential:
+        initial-delay: 1000
+        max-delay: 60000
+        multiplier: 2.0

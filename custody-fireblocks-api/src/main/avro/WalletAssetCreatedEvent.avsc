@@ -1,0 +1,13 @@
+{
+  "namespace": "com.stablecoin.custody.avro",
+  "type": "record",
+  "name": "WalletAssetCreatedEvent",
+  "fields": [
+    {"name": "walletAssetId", "type": "string"},
+    {"name": "vaultId", "type": "string"},
+    {"name": "currency", "type": "string"},
+    {"name": "protocol", "type": "string"},
+    {"name": "fireblocksAssetId", "type": "string"},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

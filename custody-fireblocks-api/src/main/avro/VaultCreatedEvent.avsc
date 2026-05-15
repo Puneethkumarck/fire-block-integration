@@ -1,0 +1,11 @@
+{
+  "namespace": "com.stablecoin.custody.avro",
+  "type": "record",
+  "name": "VaultCreatedEvent",
+  "fields": [
+    {"name": "vaultId", "type": "string"},
+    {"name": "customerRefId", "type": "string"},
+    {"name": "fireblocksVaultId", "type": "string"},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

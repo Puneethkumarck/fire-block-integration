@@ -14,6 +14,8 @@ spring:
   kafka:
     consumer:
       auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: com.stablecoin.custody.fireblocks.domain.event
 
 rate-limit:
   capacity: 3
@@ -36,3 +38,12 @@ fireblocks:
     private-key-name: fireblocks/private-key
     api-key-name: fireblocks/api-key
     webhook-public-key-name: fireblocks/webhook-public-key
+
+namastack:
+  outbox:
+    poll-interval: 100
+    batch-size: 20
+    jdbc:
+      table-prefix: "custody_"
+      schema-initialization:
+        enabled: false
