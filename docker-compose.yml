@@ -89,7 +89,7 @@ services:
       retries: 10
 
   zitadel:
-    image: ghcr.io/zitadel/zitadel:v2.71.12
+    image: ghcr.io/zitadel/zitadel:v2.71.19
     restart: unless-stopped
     command: start-from-init --masterkeyFromEnv --tlsMode disabled
     ports:
