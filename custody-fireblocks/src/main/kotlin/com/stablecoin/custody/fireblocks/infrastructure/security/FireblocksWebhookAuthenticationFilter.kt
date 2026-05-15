@@ -1,5 +1,6 @@
 package com.stablecoin.custody.fireblocks.infrastructure.security
 
+import com.stablecoin.custody.fireblocks.domain.shared.ErrorCode
 import com.stablecoin.custody.fireblocks.domain.shared.logger
 import jakarta.servlet.FilterChain
 import jakarta.servlet.ReadListener
@@ -90,7 +91,8 @@ class FireblocksWebhookAuthenticationFilter(
             val createdAt = tree.get("createdAt")?.asLong() ?: return false
             val eventTime = Instant.ofEpochMilli(createdAt)
             val age = Duration.between(eventTime, Instant.now())
-            age <= REPLAY_WINDOW
+            val absoluteAge = if (age.isNegative) age.negated() else age
+            absoluteAge <= REPLAY_WINDOW
         } catch (e: Exception) {
             log.warn("Failed to parse webhook timestamp: {}", e.message)
             false
@@ -99,7 +101,7 @@ class FireblocksWebhookAuthenticationFilter(
     private fun writeErrorResponse(response: HttpServletResponse) {
         response.status = HttpStatus.UNAUTHORIZED.value()
         response.contentType = MediaType.APPLICATION_JSON_VALUE
-        response.writer.write("""{"code":"CUSTODY-4001","message":"Webhook verification failed"}""")
+        response.writer.write("""{"code":"${ErrorCode.WEBHOOK_VERIFICATION_FAILED.code}","message":"Webhook verification failed"}""")
     }
 
     companion object {

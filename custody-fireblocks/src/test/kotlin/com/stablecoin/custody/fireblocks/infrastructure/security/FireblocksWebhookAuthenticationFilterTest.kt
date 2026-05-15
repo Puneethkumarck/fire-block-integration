@@ -134,6 +134,52 @@ class FireblocksWebhookAuthenticationFilterTest {
     }
 
     @Test
+    fun `should reject webhook with future timestamp beyond replay window`() {
+        // given
+        val futureTimestamp = Instant.now().plusSeconds(301).toEpochMilli()
+        val body = """{"type":"TRANSACTION_STATUS_UPDATED","createdAt":$futureTimestamp}"""
+        val request = createRequest(body, sign(body))
+        val response = MockHttpServletResponse()
+
+        // when
+        filter.doFilter(request, response, filterChain)
+
+        // then
+        assertThat(response.status).isEqualTo(HttpStatus.UNAUTHORIZED.value())
+        assertThat(response.contentAsString).contains("CUSTODY-4001")
+    }
+
+    @Test
+    fun `should reject webhook with missing createdAt field`() {
+        // given
+        val body = """{"type":"TRANSACTION_STATUS_UPDATED"}"""
+        val request = createRequest(body, sign(body))
+        val response = MockHttpServletResponse()
+
+        // when
+        filter.doFilter(request, response, filterChain)
+
+        // then
+        assertThat(response.status).isEqualTo(HttpStatus.UNAUTHORIZED.value())
+        assertThat(response.contentAsString).contains("CUSTODY-4001")
+    }
+
+    @Test
+    fun `should reject webhook with non-JSON body`() {
+        // given
+        val body = "not-json-content"
+        val request = createRequest(body, sign(body))
+        val response = MockHttpServletResponse()
+
+        // when
+        filter.doFilter(request, response, filterChain)
+
+        // then
+        assertThat(response.status).isEqualTo(HttpStatus.UNAUTHORIZED.value())
+        assertThat(response.contentAsString).contains("CUSTODY-4001")
+    }
+
+    @Test
     fun `should return 401 with CUSTODY-4001 error code on failure`() {
         // given
         val body = """{"type":"TRANSACTION_STATUS_UPDATED","createdAt":${Instant.now().toEpochMilli()}}"""

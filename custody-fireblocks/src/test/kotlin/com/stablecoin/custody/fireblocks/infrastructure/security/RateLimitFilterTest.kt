@@ -53,7 +53,8 @@ class RateLimitFilterTest {
 
         // then
         assertThat(response.status).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value())
-        assertThat(response.contentAsString).contains("CUSTODY-4290")
+        assertThat(response.contentAsString).contains("CUSTODY-4002")
+        assertThat(response.getHeader("Retry-After")).isNotNull()
     }
 
     @Test

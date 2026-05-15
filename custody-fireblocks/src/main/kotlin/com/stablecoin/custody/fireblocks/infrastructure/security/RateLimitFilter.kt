@@ -1,11 +1,13 @@
 package com.stablecoin.custody.fireblocks.infrastructure.security
 
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.stablecoin.custody.fireblocks.domain.shared.ErrorCode
 import io.github.bucket4j.Bandwidth
 import io.github.bucket4j.Bucket
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.security.core.context.SecurityContextHolder
@@ -32,13 +34,16 @@ class RateLimitFilter(
     ) {
         val clientId = resolveClientId()
         val bucket = buckets.get(clientId) { createBucket() }
+        val probe = bucket.tryConsumeAndReturnRemaining(1)
 
-        if (bucket.tryConsume(1)) {
+        if (probe.isConsumed) {
             filterChain.doFilter(request, response)
         } else {
+            val retryAfterSeconds = TimeUnit.NANOSECONDS.toSeconds(probe.nanosToWaitForRefill) + 1
             response.status = HttpStatus.TOO_MANY_REQUESTS.value()
             response.contentType = MediaType.APPLICATION_JSON_VALUE
-            response.writer.write("""{"code":"CUSTODY-4290","message":"Rate limit exceeded"}""")
+            response.setHeader(HttpHeaders.RETRY_AFTER, retryAfterSeconds.toString())
+            response.writer.write("""{"code":"${ErrorCode.RATE_LIMIT_EXCEEDED.code}","message":"Rate limit exceeded"}""")
         }
     }
 

@@ -9,8 +9,10 @@ import org.springframework.http.MediaType
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.security.Signature
@@ -35,13 +37,17 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
 
     @Test
     fun `should accept GET with custody read scope`() {
+        // given
+        val jwt =
+            jwt()
+                .jwt { it.subject("get-read-client") }
+                .authorities(SimpleGrantedAuthority("SCOPE_custody:read"))
+
         // when
         // then
         mockMvc
-            .perform(
-                get("/api/v1/vaults")
-                    .with(jwt().authorities(SimpleGrantedAuthority("SCOPE_custody:read"))),
-            ).andExpect(status().isNotFound)
+            .perform(get("/api/v1/vaults").with(jwt))
+            .andExpect(status().isNotFound)
     }
 
     @Test
@@ -70,6 +76,12 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
 
     @Test
     fun `should accept POST with custody write scope`() {
+        // given
+        val jwt =
+            jwt()
+                .jwt { it.subject("post-write-client") }
+                .authorities(SimpleGrantedAuthority("SCOPE_custody:write"))
+
         // when
         // then
         mockMvc
@@ -77,8 +89,51 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
                 post("/api/v1/vaults")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{}")
-                    .with(jwt().authorities(SimpleGrantedAuthority("SCOPE_custody:write"))),
+                    .with(jwt),
             ).andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `should reject PUT with custody read scope only`() {
+        // when
+        // then
+        mockMvc
+            .perform(
+                put("/api/v1/vaults/123")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}")
+                    .with(jwt().authorities(SimpleGrantedAuthority("SCOPE_custody:read"))),
+            ).andExpect(status().isForbidden)
+    }
+
+    @Test
+    fun `should accept PUT with custody write scope`() {
+        // given
+        val jwt =
+            jwt()
+                .jwt { it.subject("put-write-client") }
+                .authorities(SimpleGrantedAuthority("SCOPE_custody:write"))
+
+        // when
+        // then
+        mockMvc
+            .perform(
+                put("/api/v1/vaults/123")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}")
+                    .with(jwt),
+            ).andExpect(status().isNotFound)
+    }
+
+    @Test
+    fun `should reject DELETE with custody read scope only`() {
+        // when
+        // then
+        mockMvc
+            .perform(
+                delete("/api/v1/vaults/123")
+                    .with(jwt().authorities(SimpleGrantedAuthority("SCOPE_custody:read"))),
+            ).andExpect(status().isForbidden)
     }
 
     @Test
@@ -135,7 +190,7 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
 
     @Test
     fun `should rate limit API requests after capacity exceeded`() {
-        // given — unique subject so this test gets its own rate limit bucket
+        // given
         val jwt =
             jwt()
                 .jwt { it.subject("rate-limit-test-client") }
@@ -148,7 +203,7 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
                 .andExpect(status().isNotFound)
         }
 
-        // then — next request should be rate limited
+        // then
         mockMvc
             .perform(get("/api/v1/vaults").with(jwt))
             .andExpect(status().isTooManyRequests)
@@ -158,11 +213,11 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
     fun `should not rate limit webhook requests`() {
         // given
         repeat(5) { i ->
-            val body = """{"type":"TRANSACTION_STATUS_UPDATED","createdAt":${Instant.now().toEpochMilli() + i}}"""
+            val body = """{"type":"TRANSACTION_STATUS_UPDATED","createdAt":${Instant.now().minusMillis(i.toLong()).toEpochMilli()}}"""
             val signature = signWithWebhookKey(body)
 
             // when
-            // then — webhook should never be rate limited
+            // then
             mockMvc
                 .perform(
                     post("/api/v1/webhooks/fireblocks")
@@ -175,13 +230,19 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
 
     @Test
     fun `should not return CORS headers`() {
+        // given
+        val jwt =
+            jwt()
+                .jwt { it.subject("cors-test-client") }
+                .authorities(SimpleGrantedAuthority("SCOPE_custody:read"))
+
         // when
         // then
         mockMvc
             .perform(
                 get("/api/v1/vaults")
                     .header("Origin", "https://evil.com")
-                    .with(jwt().authorities(SimpleGrantedAuthority("SCOPE_custody:read"))),
+                    .with(jwt),
             ).andExpect(header().doesNotExist("Access-Control-Allow-Origin"))
     }
 
