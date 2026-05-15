@@ -3,19 +3,28 @@ server:
 
 management:
   server:
-    port: 8081
+    port: 8082
   endpoints:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db
 
 spring:
   application:
     name: custody-fireblocks
   datasource:
-    url: jdbc:postgresql://localhost:5432/custody_fireblocks
-    username: custody
-    password: custody
+    url: jdbc:postgresql://localhost:5432/custody
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
   jpa:
     hibernate:
       ddl-auto: validate
