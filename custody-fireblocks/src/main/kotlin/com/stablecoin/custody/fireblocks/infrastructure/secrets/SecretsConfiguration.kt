@@ -21,7 +21,7 @@ class SecretsConfiguration(
     @Bean
     fun fireblocksPrivateKey(secretsManagerClient: SecretsManagerClient): RSAPrivateKey {
         val secretValue = getSecretValue(secretsManagerClient, privateKeyName)
-        return parsePrivateKey(secretValue)
+        return parsePrivateKey(privateKeyName, secretValue)
     }
 
     @Bean
@@ -30,13 +30,13 @@ class SecretsConfiguration(
     @Bean
     fun fireblocksWebhookPublicKey(secretsManagerClient: SecretsManagerClient): RSAPublicKey {
         val secretValue = getSecretValue(secretsManagerClient, webhookPublicKeyName)
-        return parsePublicKey(secretValue)
+        return parsePublicKey(webhookPublicKeyName, secretValue)
     }
 
     companion object {
         private val keyFactory = KeyFactory.getInstance("RSA")
 
-        fun getSecretValue(
+        private fun getSecretValue(
             client: SecretsManagerClient,
             secretName: String,
         ): String {
@@ -48,16 +48,28 @@ class SecretsConfiguration(
             return client.getSecretValue(request).secretString()
         }
 
-        fun parsePrivateKey(base64EncodedKey: String): RSAPrivateKey {
-            val keyBytes = Base64.getDecoder().decode(base64EncodedKey)
-            val keySpec = PKCS8EncodedKeySpec(keyBytes)
-            return keyFactory.generatePrivate(keySpec) as RSAPrivateKey
-        }
+        fun parsePrivateKey(
+            secretName: String,
+            base64EncodedKey: String,
+        ): RSAPrivateKey =
+            try {
+                val keyBytes = Base64.getDecoder().decode(base64EncodedKey)
+                val keySpec = PKCS8EncodedKeySpec(keyBytes)
+                keyFactory.generatePrivate(keySpec) as RSAPrivateKey
+            } catch (e: Exception) {
+                throw IllegalStateException("Failed to parse PKCS#8 private key from secret '$secretName'", e)
+            }
 
-        fun parsePublicKey(base64EncodedKey: String): RSAPublicKey {
-            val keyBytes = Base64.getDecoder().decode(base64EncodedKey)
-            val keySpec = X509EncodedKeySpec(keyBytes)
-            return keyFactory.generatePublic(keySpec) as RSAPublicKey
-        }
+        fun parsePublicKey(
+            secretName: String,
+            base64EncodedKey: String,
+        ): RSAPublicKey =
+            try {
+                val keyBytes = Base64.getDecoder().decode(base64EncodedKey)
+                val keySpec = X509EncodedKeySpec(keyBytes)
+                keyFactory.generatePublic(keySpec) as RSAPublicKey
+            } catch (e: Exception) {
+                throw IllegalStateException("Failed to parse X.509 public key from secret '$secretName'", e)
+            }
     }
 }

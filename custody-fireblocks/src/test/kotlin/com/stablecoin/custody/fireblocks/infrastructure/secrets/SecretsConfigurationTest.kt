@@ -19,7 +19,7 @@ class SecretsConfigurationTest {
         val base64Key = Base64.getEncoder().encodeToString(keyPair.private.encoded)
 
         // when
-        val result = parsePrivateKey(base64Key)
+        val result = parsePrivateKey("test/private-key", base64Key)
 
         // then
         assertThat(result).isInstanceOf(RSAPrivateKey::class.java)
@@ -33,7 +33,7 @@ class SecretsConfigurationTest {
         val base64Key = Base64.getEncoder().encodeToString(keyPair.public.encoded)
 
         // when
-        val result = parsePublicKey(base64Key)
+        val result = parsePublicKey("test/public-key", base64Key)
 
         // then
         assertThat(result).isInstanceOf(RSAPublicKey::class.java)
@@ -44,8 +44,9 @@ class SecretsConfigurationTest {
     @Test
     fun `should throw on invalid Base64 for private key`() {
         // when/then
-        assertThatThrownBy { parsePrivateKey("not-valid-base64!!!") }
-            .isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { parsePrivateKey("test/private-key", "not-valid-base64!!!") }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessageContaining("test/private-key")
     }
 
     @Test
@@ -54,15 +55,17 @@ class SecretsConfigurationTest {
         val invalidKeyBytes = Base64.getEncoder().encodeToString("not-a-real-key".toByteArray())
 
         // when/then
-        assertThatThrownBy { parsePrivateKey(invalidKeyBytes) }
-            .isInstanceOf(Exception::class.java)
+        assertThatThrownBy { parsePrivateKey("test/private-key", invalidKeyBytes) }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessageContaining("test/private-key")
     }
 
     @Test
     fun `should throw on invalid Base64 for public key`() {
         // when/then
-        assertThatThrownBy { parsePublicKey("not-valid-base64!!!") }
-            .isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { parsePublicKey("test/public-key", "not-valid-base64!!!") }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessageContaining("test/public-key")
     }
 
     @Test
@@ -71,7 +74,8 @@ class SecretsConfigurationTest {
         val invalidKeyBytes = Base64.getEncoder().encodeToString("not-a-real-key".toByteArray())
 
         // when/then
-        assertThatThrownBy { parsePublicKey(invalidKeyBytes) }
-            .isInstanceOf(Exception::class.java)
+        assertThatThrownBy { parsePublicKey("test/public-key", invalidKeyBytes) }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessageContaining("test/public-key")
     }
 }
