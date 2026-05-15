@@ -42,7 +42,7 @@ services:
       start_period: 20s
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.9.6
+    image: confluentinc/cp-schema-registry:7.9.7
     restart: unless-stopped
     ports:
       - "8081:8081"
