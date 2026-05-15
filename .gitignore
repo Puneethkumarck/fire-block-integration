@@ -33,6 +33,9 @@ out/
 *.jks
 secrets/
 
+# Zitadel generated machine key
+zitadel/data/
+
 # Planning documents (not shipped with code)
 docs/
 issues/
