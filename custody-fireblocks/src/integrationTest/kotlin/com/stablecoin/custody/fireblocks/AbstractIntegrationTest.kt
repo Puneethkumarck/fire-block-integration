@@ -10,6 +10,13 @@ import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.containers.localstack.LocalStackContainer
 import org.testcontainers.kafka.ConfluentKafkaContainer
 import org.testcontainers.utility.DockerImageName
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient
+import software.amazon.awssdk.services.secretsmanager.model.CreateSecretRequest
+import java.security.KeyPairGenerator
+import java.util.Base64
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -51,6 +58,48 @@ abstract class AbstractIntegrationTest {
             kafka.start()
             schemaRegistry.start()
             localstack.start()
+            seedSecrets()
+        }
+
+        private fun seedSecrets() {
+            val client =
+                SecretsManagerClient
+                    .builder()
+                    .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SECRETSMANAGER))
+                    .region(Region.of(localstack.region))
+                    .credentialsProvider(
+                        StaticCredentialsProvider.create(
+                            AwsBasicCredentials.create(localstack.accessKey, localstack.secretKey),
+                        ),
+                    ).build()
+
+            val keyPair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
+            val privateKeyBase64 = Base64.getEncoder().encodeToString(keyPair.private.encoded)
+            val publicKeyBase64 = Base64.getEncoder().encodeToString(keyPair.public.encoded)
+
+            client.use {
+                it.createSecret(
+                    CreateSecretRequest
+                        .builder()
+                        .name("fireblocks/private-key")
+                        .secretString(privateKeyBase64)
+                        .build(),
+                )
+                it.createSecret(
+                    CreateSecretRequest
+                        .builder()
+                        .name("fireblocks/api-key")
+                        .secretString("test-api-key")
+                        .build(),
+                )
+                it.createSecret(
+                    CreateSecretRequest
+                        .builder()
+                        .name("fireblocks/webhook-public-key")
+                        .secretString(publicKeyBase64)
+                        .build(),
+                )
+            }
         }
 
         @JvmStatic
@@ -63,10 +112,10 @@ abstract class AbstractIntegrationTest {
             registry.add("spring.kafka.properties.schema.registry.url") {
                 "http://${schemaRegistry.host}:${schemaRegistry.getMappedPort(8081)}"
             }
-            registry.add("spring.cloud.aws.secretsmanager.endpoint") {
+            registry.add("aws.secretsmanager.endpoint") {
                 localstack.getEndpointOverride(LocalStackContainer.Service.SECRETSMANAGER).toString()
             }
-            registry.add("spring.cloud.aws.region.static") { localstack.region }
+            registry.add("aws.secretsmanager.region") { localstack.region }
         }
     }
 }

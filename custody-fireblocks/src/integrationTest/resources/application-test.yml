@@ -21,3 +21,9 @@ server:
 management:
   server:
     port: -1
+
+fireblocks:
+  secrets:
+    private-key-name: fireblocks/private-key
+    api-key-name: fireblocks/api-key
+    webhook-public-key-name: fireblocks/webhook-public-key

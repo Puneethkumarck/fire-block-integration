@@ -53,6 +53,8 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.postgresql:postgresql")
     implementation("io.github.resilience4j:resilience4j-spring-boot4:2.4.0")
+    implementation(platform("software.amazon.awssdk:bom:2.31.62"))
+    implementation("software.amazon.awssdk:secretsmanager")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
         exclude(group = "org.mockito")
