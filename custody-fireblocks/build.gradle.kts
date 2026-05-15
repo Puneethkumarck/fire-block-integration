@@ -76,7 +76,7 @@ dependencies {
     integrationTestImplementation("org.testcontainers:localstack")
     integrationTestImplementation("org.springframework.boot:spring-boot-testcontainers")
     integrationTestImplementation("org.springframework.security:spring-security-test")
-    integrationTestImplementation("org.wiremock:wiremock-standalone:3.12.1")
+    integrationTestImplementation("org.wiremock:wiremock-standalone:3.13.2")
     integrationTestImplementation(testFixtures(project))
 
     businessTestImplementation(project(":custody-fireblocks-client"))
@@ -86,7 +86,7 @@ dependencies {
     businessTestImplementation("org.testcontainers:localstack")
     businessTestImplementation("org.springframework.boot:spring-boot-testcontainers")
     businessTestImplementation("org.springframework.security:spring-security-test")
-    businessTestImplementation("org.wiremock:wiremock-standalone:3.12.1")
+    businessTestImplementation("org.wiremock:wiremock-standalone:3.13.2")
     businessTestImplementation(testFixtures(project))
 
     developmentOnly("org.springframework.boot:spring-boot-devtools")
