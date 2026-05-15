@@ -1,3 +1,4 @@
+-- DESTRUCTIVE: drops the legacy outbox_event table; safe for greenfield — verify no pending events before running in production
 DROP TABLE IF EXISTS outbox_event;
 
 CREATE TABLE custody_outbox_record (

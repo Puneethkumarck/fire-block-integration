@@ -1,4 +1,4 @@
-package com.stablecoin.custody.fireblocks.infrastructure.messaging.consumer
+package com.stablecoin.custody.fireblocks.application.stream
 
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionRepository
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionStatus
@@ -29,7 +29,7 @@ class TransactionStatusEventConsumerTest {
                 fireblocksStatus = "PENDING_SIGNATURE",
             )
         every { transactionRepository.findByExternalTxId(transaction.externalTxId) } returns transaction
-        every { transactionRepository.save(any()) } returnsArgument 0
+        every { transactionRepository.save(match { it.externalTxId == transaction.externalTxId }) } returnsArgument 0
 
         // when
         consumer.consume(event)

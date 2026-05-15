@@ -1,6 +1,7 @@
 package com.stablecoin.custody.fireblocks.infrastructure.messaging.outbox
 
 import com.stablecoin.custody.fireblocks.domain.event.VaultCreatedEvent
+import com.stablecoin.custody.fireblocks.domain.exception.OutboxPublishException
 import com.stablecoin.custody.fireblocks.test.fixtures.aVaultCreatedEvent
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
@@ -14,11 +15,12 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.support.SendResult
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutionException
 
 @ExtendWith(MockKExtension::class)
 class ServiceOutboxHandlerTest {
     private val kafkaTemplate: KafkaTemplate<String, Any> = mockk()
-    private val handler = ServiceOutboxHandler(kafkaTemplate)
+    private val handler = ServiceOutboxHandler(kafkaTemplate, 10L)
 
     @Test
     fun `should publish event to correct topic with key`() {
@@ -70,7 +72,7 @@ class ServiceOutboxHandlerTest {
     }
 
     @Test
-    fun `should propagate kafka send failure`() {
+    fun `should throw OutboxPublishException on kafka send failure`() {
         // given
         val event = aVaultCreatedEvent()
         val metadata = mockk<OutboxRecordMetadata>()
@@ -81,6 +83,8 @@ class ServiceOutboxHandlerTest {
 
         // when / then
         assertThatThrownBy { handler.handle(event, metadata) }
-            .isInstanceOf(RuntimeException::class.java)
+            .isInstanceOf(OutboxPublishException::class.java)
+            .hasMessageContaining("Kafka send failed")
+            .hasCauseInstanceOf(ExecutionException::class.java)
     }
 }

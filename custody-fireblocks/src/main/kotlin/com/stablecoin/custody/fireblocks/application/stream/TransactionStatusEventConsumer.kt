@@ -1,4 +1,4 @@
-package com.stablecoin.custody.fireblocks.infrastructure.messaging.consumer
+package com.stablecoin.custody.fireblocks.application.stream
 
 import com.stablecoin.custody.fireblocks.domain.event.TransactionStatusChangedEvent
 import com.stablecoin.custody.fireblocks.domain.exception.InvalidTransactionStateException
@@ -6,9 +6,12 @@ import com.stablecoin.custody.fireblocks.domain.shared.logger
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionRepository
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionStatus
 import org.springframework.kafka.annotation.BackOff
+import org.springframework.kafka.annotation.DltHandler
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.kafka.annotation.RetryableTopic
 import org.springframework.kafka.retrytopic.DltStrategy
+import org.springframework.kafka.support.KafkaHeaders
+import org.springframework.messaging.handler.annotation.Header
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -66,5 +69,19 @@ class TransactionStatusEventConsumer(
             )
         transactionRepository.save(updated)
         log.info("Updated transaction {} status: {} -> {}", event.transactionId, event.previousStatus, event.newStatus)
+    }
+
+    @DltHandler
+    fun handleDlt(
+        event: TransactionStatusChangedEvent,
+        @Header(KafkaHeaders.RECEIVED_TOPIC) topic: String,
+    ) {
+        log.error(
+            "Message exhausted retries, sent to DLT: topic={}, transactionId={}, externalTxId={}, newStatus={}",
+            topic,
+            event.transactionId,
+            event.externalTxId,
+            event.newStatus,
+        )
     }
 }
