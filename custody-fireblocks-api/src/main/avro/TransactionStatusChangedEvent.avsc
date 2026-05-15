@@ -1,0 +1,15 @@
+{
+  "namespace": "com.stablecoin.custody.avro",
+  "type": "record",
+  "name": "TransactionStatusChangedEvent",
+  "fields": [
+    {"name": "transactionId", "type": "string"},
+    {"name": "externalTxId", "type": "string"},
+    {"name": "previousStatus", "type": "string"},
+    {"name": "newStatus", "type": "string"},
+    {"name": "fireblocksStatus", "type": ["null", "string"], "default": null},
+    {"name": "subStatus", "type": ["null", "string"], "default": null},
+    {"name": "txHash", "type": ["null", "string"], "default": null},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

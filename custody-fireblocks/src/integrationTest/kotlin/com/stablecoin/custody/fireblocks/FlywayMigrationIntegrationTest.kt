@@ -29,9 +29,11 @@ class FlywayMigrationIntegrationTest : AbstractIntegrationTest() {
         // then
         assertThat(tables).containsExactlyInAnyOrder(
             "audit_logs",
+            "custody_outbox_instance",
+            "custody_outbox_partition",
+            "custody_outbox_record",
             "deposit_addresses",
             "flyway_schema_history",
-            "outbox_event",
             "shedlock",
             "supported_assets",
             "transactions",
