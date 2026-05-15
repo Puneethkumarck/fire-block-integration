@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile
+        run: ./gradlew compileKotlin compileTestKotlin
+
+      - name: Unit Tests + ArchUnit
+        run: ./gradlew test
+
+      - name: Integration Tests
+        run: ./gradlew integrationTest
+
+      - name: Business Tests
+        run: ./gradlew businessTest
+
+      - name: Jacoco Report
+        if: always()
+        run: ./gradlew jacocoTestReport
+
+      - name: Jacoco Coverage Verification
+        run: ./gradlew jacocoTestCoverageVerification
+
+      - name: Ktlint Check
+        if: always()
+        run: ./gradlew ktlintCheck
+        continue-on-error: true
+
+      - name: Upload Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            **/build/reports/tests/
+            **/build/reports/jacoco/
+          retention-days: 14
