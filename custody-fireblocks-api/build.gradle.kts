@@ -20,7 +20,11 @@ kotlin {
 }
 
 repositories {
-    maven("https://packages.confluent.io/maven/")
+    maven("https://packages.confluent.io/maven/") {
+        content {
+            includeGroupByRegex("io\\.confluent(\\..+)?")
+        }
+    }
 }
 
 dependencies {
