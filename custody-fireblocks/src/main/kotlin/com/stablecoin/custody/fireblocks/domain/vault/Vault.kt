@@ -19,12 +19,14 @@ data class Vault(
         require(name.isNotBlank()) { "name must not be blank" }
     }
 
-    fun activate(fireblocksVaultId: String) =
-        copy(
+    fun activate(fireblocksVaultId: String): Vault {
+        require(fireblocksVaultId.isNotBlank()) { "fireblocksVaultId must not be blank" }
+        return copy(
             fireblocksVaultId = fireblocksVaultId,
             status = VaultStatus.ACTIVE,
             updatedAt = Instant.now(),
         )
+    }
 
     fun markFailed() =
         copy(

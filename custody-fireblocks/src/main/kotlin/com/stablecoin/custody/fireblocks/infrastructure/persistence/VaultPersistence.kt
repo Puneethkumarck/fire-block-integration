@@ -43,8 +43,11 @@ private class VaultEntity(
 private interface VaultJpaRepository : JpaRepository<VaultEntity, UUID> {
     fun findByCustomerRefId(customerRefId: String): VaultEntity?
 
-    @Query("SELECT v FROM VaultEntity v WHERE v.status = 'PENDING' AND v.createdAt < :cutoff")
-    fun findPendingOlderThan(cutoff: Instant): List<VaultEntity>
+    @Query("SELECT v FROM VaultEntity v WHERE v.status = :status AND v.createdAt < :cutoff")
+    fun findPendingOlderThan(
+        status: VaultStatus,
+        cutoff: Instant,
+    ): List<VaultEntity>
 }
 
 @Component
@@ -64,7 +67,8 @@ private class VaultRepositoryAdapter(
 
     override fun save(vault: Vault): Vault = vault.toEntity().let { jpaRepository.saveAndFlush(it) }.toDomain()
 
-    override fun findPendingOlderThan(cutoff: Instant): List<Vault> = jpaRepository.findPendingOlderThan(cutoff).map { it.toDomain() }
+    override fun findPendingOlderThan(cutoff: Instant): List<Vault> =
+        jpaRepository.findPendingOlderThan(VaultStatus.PENDING, cutoff).map { it.toDomain() }
 
     fun Vault.toEntity() =
         VaultEntity(

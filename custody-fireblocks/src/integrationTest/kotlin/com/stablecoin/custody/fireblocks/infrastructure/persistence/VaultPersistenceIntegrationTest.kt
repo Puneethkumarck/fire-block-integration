@@ -10,6 +10,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -75,7 +76,7 @@ class VaultPersistenceIntegrationTest : AbstractIntegrationTest() {
         // when/then
         assertThatThrownBy {
             vaultRepository.save(aVault(customerRefId = customerRefId))
-        }.isInstanceOf(Exception::class.java)
+        }.isInstanceOf(DataIntegrityViolationException::class.java)
     }
 
     @Test

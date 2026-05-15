@@ -83,6 +83,26 @@ class VaultTest {
     }
 
     @Test
+    fun `should reject blank fireblocksVaultId on activate`() {
+        // given
+        val vault = aVault(status = VaultStatus.PENDING, fireblocksVaultId = null)
+
+        // when/then
+        assertThatThrownBy { vault.activate(" ") }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("fireblocksVaultId must not be blank")
+    }
+
+    @Test
+    fun `should not throw when assertActive on ACTIVE vault`() {
+        // given
+        val vault = aVault(status = VaultStatus.ACTIVE)
+
+        // when/then
+        vault.assertActive()
+    }
+
+    @Test
     fun `should throw VaultNotActiveException when assertActive on PENDING vault`() {
         // given
         val vault = aVault(status = VaultStatus.PENDING)
