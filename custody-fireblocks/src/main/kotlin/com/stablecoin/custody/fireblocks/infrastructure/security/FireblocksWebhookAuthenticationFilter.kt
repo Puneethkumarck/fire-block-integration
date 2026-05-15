@@ -19,7 +19,9 @@ import tools.jackson.databind.ObjectMapper
 import java.io.BufferedReader
 import java.io.ByteArrayInputStream
 import java.io.InputStreamReader
+import java.security.InvalidKeyException
 import java.security.Signature
+import java.security.SignatureException
 import java.security.interfaces.RSAPublicKey
 import java.time.Duration
 import java.time.Instant
@@ -80,8 +82,14 @@ class FireblocksWebhookAuthenticationFilter(
             sig.initVerify(fireblocksWebhookPublicKey)
             sig.update(bodyBytes)
             sig.verify(signatureBytes)
-        } catch (e: Exception) {
+        } catch (e: IllegalArgumentException) {
+            log.warn("Invalid Base64 in signature header: {}", e.message)
+            false
+        } catch (e: SignatureException) {
             log.warn("Signature verification failed: {}", e.message)
+            false
+        } catch (e: InvalidKeyException) {
+            log.warn("Invalid public key for signature verification: {}", e.message)
             false
         }
 

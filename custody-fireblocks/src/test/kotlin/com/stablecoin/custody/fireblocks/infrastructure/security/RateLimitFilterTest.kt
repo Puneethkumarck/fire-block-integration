@@ -59,13 +59,13 @@ class RateLimitFilterTest {
 
     @Test
     fun `should track rate limits per client`() {
-        // given — exhaust client-a
+        // given
         setJwtAuthentication("client-a")
         repeat(3) {
             filter.doFilter(MockHttpServletRequest(), MockHttpServletResponse(), MockFilterChain())
         }
 
-        // when — client-b should still have tokens
+        // when
         setJwtAuthentication("client-b")
         val response = MockHttpServletResponse()
         filter.doFilter(MockHttpServletRequest(), response, MockFilterChain())
@@ -76,12 +76,57 @@ class RateLimitFilterTest {
 
     @Test
     fun `should use anonymous bucket when no JWT present`() {
-        // given — no authentication set
+        // given
         val request = MockHttpServletRequest()
         val response = MockHttpServletResponse()
 
         // when
         filter.doFilter(request, response, MockFilterChain())
+
+        // then
+        assertThat(response.status).isEqualTo(HttpStatus.OK.value())
+    }
+
+    @Test
+    fun `should fall back to jti when JWT subject is null`() {
+        // given
+        val jwt =
+            Jwt
+                .withTokenValue("mock-token")
+                .header("alg", "RS256")
+                .claim("jti", "unique-token-id")
+                .issuedAt(Instant.now())
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build()
+        SecurityContextHolder.getContext().authentication =
+            JwtAuthenticationToken(jwt, listOf(SimpleGrantedAuthority("SCOPE_custody:read")))
+
+        val response = MockHttpServletResponse()
+
+        // when
+        filter.doFilter(MockHttpServletRequest(), response, MockFilterChain())
+
+        // then
+        assertThat(response.status).isEqualTo(HttpStatus.OK.value())
+    }
+
+    @Test
+    fun `should use anonymous bucket when JWT has no subject or jti`() {
+        // given
+        val jwt =
+            Jwt
+                .withTokenValue("mock-token")
+                .header("alg", "RS256")
+                .issuedAt(Instant.now())
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build()
+        SecurityContextHolder.getContext().authentication =
+            JwtAuthenticationToken(jwt, listOf(SimpleGrantedAuthority("SCOPE_custody:read")))
+
+        val response = MockHttpServletResponse()
+
+        // when
+        filter.doFilter(MockHttpServletRequest(), response, MockFilterChain())
 
         // then
         assertThat(response.status).isEqualTo(HttpStatus.OK.value())

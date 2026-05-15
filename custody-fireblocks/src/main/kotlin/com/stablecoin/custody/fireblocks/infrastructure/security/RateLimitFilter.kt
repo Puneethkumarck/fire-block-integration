@@ -50,7 +50,10 @@ class RateLimitFilter(
     private fun resolveClientId(): String {
         val auth = SecurityContextHolder.getContext().authentication
         if (auth is JwtAuthenticationToken) {
-            return auth.token.subject ?: "anonymous"
+            val token = auth.token
+            return token.subject
+                ?: token.id
+                ?: "anonymous"
         }
         return "anonymous"
     }
