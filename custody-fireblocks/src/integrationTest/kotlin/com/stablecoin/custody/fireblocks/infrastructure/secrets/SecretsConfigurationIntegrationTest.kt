@@ -1,6 +1,7 @@
 package com.stablecoin.custody.fireblocks.infrastructure.secrets
 
 import com.stablecoin.custody.fireblocks.AbstractIntegrationTest
+import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.config.FireblocksProperties
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -10,6 +11,7 @@ import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient
 import software.amazon.awssdk.services.secretsmanager.model.ResourceNotFoundException
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
+import java.time.Duration
 
 class SecretsConfigurationIntegrationTest : AbstractIntegrationTest() {
     @Autowired
@@ -56,12 +58,22 @@ class SecretsConfigurationIntegrationTest : AbstractIntegrationTest() {
     @Test
     fun `should fail startup if secret not found in Secrets Manager`() {
         // given
-        val config =
-            SecretsConfiguration(
-                privateKeyName = "non-existent/private-key",
-                apiKeyName = "fireblocks/api-key",
-                webhookPublicKeyName = "fireblocks/webhook-public-key",
+        val properties =
+            FireblocksProperties(
+                api =
+                    FireblocksProperties.ApiProperties(
+                        baseUrl = "http://localhost",
+                        connectTimeout = Duration.ofSeconds(5),
+                        readTimeout = Duration.ofSeconds(5),
+                    ),
+                secrets =
+                    FireblocksProperties.SecretsProperties(
+                        privateKeyName = "non-existent/private-key",
+                        apiKeyName = "fireblocks/api-key",
+                        webhookPublicKeyName = "fireblocks/webhook-public-key",
+                    ),
             )
+        val config = SecretsConfiguration(properties)
 
         // when/then
         assertThatThrownBy { config.fireblocksPrivateKey(secretsManagerClient) }
