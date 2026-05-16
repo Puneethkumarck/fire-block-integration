@@ -117,6 +117,7 @@ resilience4j:
       fireblocks:
         maxAttempts: 3
         waitDuration: 500ms
+        enableExponentialBackoff: true
         exponentialBackoffMultiplier: 2
         retryExceptions:
           - java.io.IOException
