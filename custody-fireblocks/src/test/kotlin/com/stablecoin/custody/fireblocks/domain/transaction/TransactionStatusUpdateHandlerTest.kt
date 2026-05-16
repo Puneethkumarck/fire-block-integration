@@ -4,6 +4,7 @@ import com.stablecoin.custody.fireblocks.test.fixtures.aTransaction
 import com.stablecoin.custody.fireblocks.test.fixtures.aTransactionStatusChangedEvent
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -11,7 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
 class TransactionStatusUpdateHandlerTest {
-    private val transactionRepository: TransactionRepository = io.mockk.mockk()
+    private val transactionRepository: TransactionRepository = mockk()
     private val handler = TransactionStatusUpdateHandler(transactionRepository)
 
     @Test
