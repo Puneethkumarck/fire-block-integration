@@ -58,7 +58,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.postgresql:postgresql")
     implementation("io.github.resilience4j:resilience4j-spring-boot4:2.4.0")
-    implementation(platform("software.amazon.awssdk:bom:2.31.62"))
+    implementation(platform("software.amazon.awssdk:bom:2.44.7"))
     implementation("software.amazon.awssdk:secretsmanager")
     implementation("io.jsonwebtoken:jjwt-api:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
