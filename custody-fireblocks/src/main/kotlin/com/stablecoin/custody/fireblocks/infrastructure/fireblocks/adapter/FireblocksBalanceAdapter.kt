@@ -5,6 +5,9 @@ import com.stablecoin.custody.fireblocks.domain.port.FireblocksBalancePort
 import com.stablecoin.custody.fireblocks.domain.shared.logger
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.FireblocksVaultClient
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksBalanceResponse
+import io.github.resilience4j.bulkhead.annotation.Bulkhead
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
+import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 
@@ -14,6 +17,9 @@ internal class FireblocksBalanceAdapter(
 ) : FireblocksBalancePort {
     private val log = logger<FireblocksBalanceAdapter>()
 
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks-balance")
+    @Retry(name = "fireblocks")
     override fun getBalance(
         vaultAccountId: String,
         assetId: String,

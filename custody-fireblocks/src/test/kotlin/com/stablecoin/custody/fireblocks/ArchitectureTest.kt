@@ -86,4 +86,15 @@ class ArchitectureTest {
             .beAnnotatedWith("org.springframework.beans.factory.annotation.Autowired")
             .check(classes)
     }
+
+    @Test
+    fun `infrastructure must not depend on application controllers`() {
+        noClasses()
+            .that()
+            .resideInAPackage("$basePackage.infrastructure..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAPackage("$basePackage.application.controller..")
+            .check(classes)
+    }
 }

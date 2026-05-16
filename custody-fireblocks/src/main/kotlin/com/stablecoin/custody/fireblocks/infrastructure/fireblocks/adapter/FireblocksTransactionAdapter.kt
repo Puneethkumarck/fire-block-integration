@@ -14,6 +14,9 @@ import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.Fi
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksTransactionResponse
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.OneTimeAddress
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.TransferPeerPath
+import io.github.resilience4j.bulkhead.annotation.Bulkhead
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
+import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
 
@@ -23,6 +26,9 @@ internal class FireblocksTransactionAdapter(
 ) : FireblocksTransactionPort {
     private val log = logger<FireblocksTransactionAdapter>()
 
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    @Retry(name = "fireblocks")
     override fun submitTransaction(command: FireblocksSubmitCommand): TransactionResult {
         log.info(
             "Submitting transaction: externalTxId={}, sourceVaultId={}, assetId={}",
@@ -35,12 +41,18 @@ internal class FireblocksTransactionAdapter(
         return response.toTransactionResult()
     }
 
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    @Retry(name = "fireblocks")
     override fun getTransaction(fireblocksTxId: String): TransactionResult {
         log.info("Getting transaction: fireblocksTxId={}", fireblocksTxId)
         val response = transactionClient.getTransaction(fireblocksTxId)
         return response.toTransactionResult()
     }
 
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    @Retry(name = "fireblocks")
     override fun getByExternalId(externalTxId: String): TransactionResult? {
         log.info("Getting transaction by externalId: externalTxId={}", externalTxId)
         return try {
@@ -51,6 +63,9 @@ internal class FireblocksTransactionAdapter(
         }
     }
 
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    @Retry(name = "fireblocks")
     override fun estimateFee(command: FireblocksEstimateFeeCommand): FeeEstimateResult {
         log.info(
             "Estimating fee: sourceVaultId={}, assetId={}",

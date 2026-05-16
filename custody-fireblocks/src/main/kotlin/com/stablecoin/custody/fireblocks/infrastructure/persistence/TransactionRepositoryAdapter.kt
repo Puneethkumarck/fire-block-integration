@@ -50,6 +50,8 @@ internal class TransactionRepositoryAdapter(
                 pageable = PageRequest.of(0, limit, Sort.by("createdAt").ascending()),
             ).map { it.toDomain() }
 
+    override fun countByStatus(status: TransactionStatus): Long = jpaRepository.countByStatus(status)
+
     fun Transaction.toEntity() =
         TransactionEntity(
             id = id.value,

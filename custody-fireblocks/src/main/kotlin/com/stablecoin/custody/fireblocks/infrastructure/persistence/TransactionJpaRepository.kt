@@ -38,4 +38,6 @@ internal interface TransactionJpaRepository : JpaRepository<TransactionEntity, U
         @Param("cutoff") cutoff: Instant,
         pageable: Pageable,
     ): List<TransactionEntity>
+
+    fun countByStatus(status: TransactionStatus): Long
 }

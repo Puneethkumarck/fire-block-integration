@@ -10,6 +10,9 @@ import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.Cr
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksDepositAddressResponse
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksVaultAccountResponse
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksWalletAssetResponse
+import io.github.resilience4j.bulkhead.annotation.Bulkhead
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
+import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.stereotype.Component
 
 @Component
@@ -18,6 +21,9 @@ internal class FireblocksVaultAdapter(
 ) : FireblocksVaultPort {
     private val log = logger<FireblocksVaultAdapter>()
 
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    @Retry(name = "fireblocks")
     override fun createVault(
         name: String,
         customerRefId: String,
@@ -27,12 +33,18 @@ internal class FireblocksVaultAdapter(
         return response.toVaultResult()
     }
 
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    @Retry(name = "fireblocks")
     override fun getVault(vaultAccountId: String): VaultResult {
         log.info("Getting Fireblocks vault: vaultAccountId={}", vaultAccountId)
         val response = vaultClient.getVault(vaultAccountId)
         return response.toVaultResult()
     }
 
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    @Retry(name = "fireblocks")
     override fun createWalletAsset(
         vaultAccountId: String,
         assetId: String,
@@ -42,6 +54,9 @@ internal class FireblocksVaultAdapter(
         return response.toWalletAssetResult()
     }
 
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    @Retry(name = "fireblocks")
     override fun generateDepositAddress(
         vaultAccountId: String,
         assetId: String,

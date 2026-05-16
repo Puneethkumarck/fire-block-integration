@@ -17,6 +17,9 @@ management:
           include: livenessState
         readiness:
           include: readinessState,db
+  tracing:
+    sampling:
+      probability: 1.0
 
 spring:
   application:
@@ -34,11 +37,13 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      observation-enabled: true
     consumer:
       group-id: custody-fireblocks
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      observation-enabled: true
       properties:
         spring.json.trusted.packages: com.stablecoin.custody.fireblocks.domain.event
   flyway:
@@ -85,3 +90,38 @@ namastack:
         initial-delay: 1000
         max-delay: 60000
         multiplier: 2.0
+
+resilience4j:
+  bulkhead:
+    instances:
+      fireblocks:
+        maxConcurrentCalls: 25
+  circuitbreaker:
+    instances:
+      fireblocks:
+        failureRateThreshold: 50
+        slidingWindowSize: 10
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+        slowCallRateThreshold: 60
+        slowCallDurationThreshold: 10s
+      fireblocks-balance:
+        failureRateThreshold: 50
+        slidingWindowSize: 10
+        waitDurationInOpenState: 30s
+  retry:
+    instances:
+      fireblocks:
+        maxAttempts: 3
+        waitDuration: 500ms
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.io.IOException
+          - org.springframework.web.client.HttpServerErrorException
+        ignoreExceptions:
+          - com.stablecoin.custody.fireblocks.domain.shared.CustodyException
+
+custody:
+  polling:
+    interval: 120000
+    vault-interval: 120000
