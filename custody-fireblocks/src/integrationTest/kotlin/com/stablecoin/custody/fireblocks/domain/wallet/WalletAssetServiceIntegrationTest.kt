@@ -20,6 +20,7 @@ import com.stablecoin.custody.fireblocks.test.fixtures.aGenerateAddressCommand
 import com.stablecoin.custody.fireblocks.test.fixtures.aVault
 import com.stablecoin.custody.fireblocks.test.fixtures.aWalletAsset
 import com.stablecoin.custody.fireblocks.test.fixtures.anActivateAssetCommand
+import com.stablecoin.custody.fireblocks.test.fixtures.anAuditLog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterAll
@@ -307,10 +308,17 @@ class WalletAssetServiceIntegrationTest : AbstractIntegrationTest() {
 
         // then
         val auditLogs = auditLogRepository.findByResourceId(result.id.value.toString())
-        assertThat(auditLogs).hasSize(1)
-        assertThat(auditLogs.first().operation).isEqualTo(AuditOperation.ASSET_ACTIVATED)
-        assertThat(auditLogs.first().status).isEqualTo(AuditStatus.SUCCESS)
-        assertThat(auditLogs.first().actor).isEqualTo("system")
+        val expected =
+            anAuditLog(
+                operation = AuditOperation.ASSET_ACTIVATED,
+                status = AuditStatus.SUCCESS,
+                actor = "system",
+                resourceId = result.id.value.toString(),
+            )
+        assertThat(auditLogs.first())
+            .usingRecursiveComparison()
+            .ignoringFields("id", "timestamp", "fireblocksRequestId", "details")
+            .isEqualTo(expected)
     }
 
     @Test
@@ -345,9 +353,16 @@ class WalletAssetServiceIntegrationTest : AbstractIntegrationTest() {
 
         // then
         val auditLogs = auditLogRepository.findByResourceId(result.id.value.toString())
-        assertThat(auditLogs).hasSize(1)
-        assertThat(auditLogs.first().operation).isEqualTo(AuditOperation.ADDRESS_GENERATED)
-        assertThat(auditLogs.first().status).isEqualTo(AuditStatus.SUCCESS)
-        assertThat(auditLogs.first().actor).isEqualTo("system")
+        val expected =
+            anAuditLog(
+                operation = AuditOperation.ADDRESS_GENERATED,
+                status = AuditStatus.SUCCESS,
+                actor = "system",
+                resourceId = result.id.value.toString(),
+            )
+        assertThat(auditLogs.first())
+            .usingRecursiveComparison()
+            .ignoringFields("id", "timestamp", "fireblocksRequestId", "details")
+            .isEqualTo(expected)
     }
 }
