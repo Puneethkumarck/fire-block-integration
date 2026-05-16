@@ -1,16 +1,22 @@
 package com.stablecoin.custody.fireblocks.application.exception
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.stablecoin.custody.fireblocks.domain.exception.FireblocksApiException
 import com.stablecoin.custody.fireblocks.domain.exception.FireblocksTimeoutException
 import com.stablecoin.custody.fireblocks.domain.exception.InvalidTransactionStateException
 import com.stablecoin.custody.fireblocks.domain.exception.TransactionDuplicateException
 import com.stablecoin.custody.fireblocks.domain.exception.VaultNotActiveException
 import com.stablecoin.custody.fireblocks.domain.exception.VaultNotFoundException
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
+import org.assertj.core.api.Assertions.assertThat
 import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.dao.OptimisticLockingFailureException
@@ -174,17 +180,42 @@ class GlobalExceptionHandlerTest {
 
     @Test
     fun `should log 4xx at WARN level`() {
+        val logAppender = captureHandlerLogs()
+
         mockMvc
             .perform(get("/test/vault-not-found"))
             .andExpect(status().isNotFound)
+
+        assertThat(logAppender.list)
+            .anyMatch { it.level == Level.WARN && it.formattedMessage.contains("Client error") }
+        detachAppender(logAppender)
     }
 
     @Test
     fun `should log 5xx at ERROR level`() {
+        val logAppender = captureHandlerLogs()
+
         mockMvc
             .perform(get("/test/fireblocks-api-error"))
             .andExpect(status().isBadGateway)
+
+        assertThat(logAppender.list)
+            .anyMatch { it.level == Level.ERROR && it.formattedMessage.contains("Server error") }
+        detachAppender(logAppender)
     }
+
+    private fun captureHandlerLogs(): ListAppender<ILoggingEvent> {
+        val appender = ListAppender<ILoggingEvent>()
+        appender.start()
+        handlerLogger().addAppender(appender)
+        return appender
+    }
+
+    private fun detachAppender(appender: ListAppender<ILoggingEvent>) {
+        handlerLogger().detachAppender(appender)
+    }
+
+    private fun handlerLogger() = LoggerFactory.getLogger(GlobalExceptionHandler::class.java) as ch.qos.logback.classic.Logger
 }
 
 @Validated
@@ -210,7 +241,7 @@ private class TestController {
 
     @PostMapping("/test/validate")
     fun validate(
-        @RequestBody @jakarta.validation.Valid request: TestRequest,
+        @RequestBody @Valid request: TestRequest,
     ): String = "ok"
 
     @GetMapping("/test/data-integrity")

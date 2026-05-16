@@ -7,6 +7,7 @@ import org.slf4j.MDC
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -102,7 +103,7 @@ class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
     }
 
     private fun statusReasonPhrase(httpStatus: Int): String =
-        org.springframework.http.HttpStatus
+        HttpStatus
             .valueOf(httpStatus)
             .reasonPhrase
 }

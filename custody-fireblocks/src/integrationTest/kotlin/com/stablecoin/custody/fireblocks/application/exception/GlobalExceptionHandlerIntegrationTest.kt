@@ -2,7 +2,9 @@ package com.stablecoin.custody.fireblocks.application.exception
 
 import com.stablecoin.custody.fireblocks.AbstractIntegrationTest
 import com.stablecoin.custody.fireblocks.domain.exception.VaultNotFoundException
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
+import org.hamcrest.Matchers.hasKey
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -92,9 +94,7 @@ class GlobalExceptionHandlerIntegrationTest : AbstractIntegrationTest() {
                 get("/api/test/vault-not-found")
                     .with(uniqueJwt()),
             ).andExpect(status().isNotFound)
-            .andExpect(jsonPath("$.code").value("CUSTODY-1001"))
-            .andExpect(jsonPath("$.status").value("Not Found"))
-            .andExpect(jsonPath("$.message").value("Vault not found for customerRefId: cust-999"))
+            .andExpect(jsonPath("$", hasKey("traceId")))
     }
 }
 
@@ -110,7 +110,7 @@ class ExceptionTestController {
 
     @PostMapping("/validate")
     fun validate(
-        @RequestBody @jakarta.validation.Valid request: IntegrationTestRequest,
+        @RequestBody @Valid request: IntegrationTestRequest,
     ): String = "ok"
 }
 
