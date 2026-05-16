@@ -36,21 +36,21 @@ class TransactionStatusHandler(
 
         val newStatus = TransactionStatus.fromFireblocksStatus(fireblocksStatus)
 
-        if (transaction.status == newStatus) {
+        val locked =
+            transactionRepository.findByIdForUpdate(transaction.id)
+                ?: return
+
+        if (locked.status == newStatus) {
             log.info("Transaction {} already in status {}, skipping", fireblocksTxId, newStatus)
             return
         }
 
-        if (transaction.status.terminal) {
-            log.error("Transaction {} already in terminal status {}, cannot update", fireblocksTxId, transaction.status)
+        if (locked.status.terminal) {
+            log.warn("Transaction {} already in terminal status {}, cannot update", fireblocksTxId, locked.status)
             return
         }
 
-        stateMachine.transition(transaction, newStatus)
-
-        val locked =
-            transactionRepository.findByIdForUpdate(transaction.id)
-                ?: return
+        stateMachine.transition(locked, newStatus)
 
         val previousStatus = locked.status
         val updated = locked.updateStatus(newStatus, fireblocksStatus, subStatus, txHash)

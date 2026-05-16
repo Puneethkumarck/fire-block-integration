@@ -48,12 +48,16 @@ class TransactionSubmissionHandler(
         val transaction = Transaction.create(command, supportedAsset.fireblocksAssetId)
         val saved = transactionRepository.save(transaction)
 
+        val fireblocksVaultId =
+            vault.fireblocksVaultId
+                ?: throw IllegalStateException("Active vault ${vault.id} has no fireblocksVaultId")
+
         return try {
             val fireblocksResult =
                 fireblocksClient.submitTransaction(
                     FireblocksSubmitCommand(
                         externalTxId = command.externalTxId,
-                        sourceVaultId = vault.fireblocksVaultId!!,
+                        sourceVaultId = fireblocksVaultId,
                         destinationAddress = command.destinationAddress,
                         assetId = supportedAsset.fireblocksAssetId,
                         amount = command.amount,

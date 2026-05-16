@@ -126,6 +126,7 @@ class TransactionStatusHandlerTest {
         // given
         val transaction = aTransaction(status = TransactionStatus.PROCESSING, fireblocksTransactionId = "fb-tx-005")
         every { transactionRepository.findByFireblocksTransactionId("fb-tx-005") } returns transaction
+        every { transactionRepository.findByIdForUpdate(transaction.id) } returns transaction
 
         // when
         handler.handleStatusUpdate("fb-tx-005", "BROADCASTING", null, null)
@@ -140,6 +141,7 @@ class TransactionStatusHandlerTest {
         // given
         val transaction = aTransaction(status = TransactionStatus.CONFIRMED, fireblocksTransactionId = "fb-tx-006")
         every { transactionRepository.findByFireblocksTransactionId("fb-tx-006") } returns transaction
+        every { transactionRepository.findByIdForUpdate(transaction.id) } returns transaction
 
         // when
         handler.handleStatusUpdate("fb-tx-006", "FAILED", null, null)
@@ -236,6 +238,7 @@ class TransactionStatusHandlerTest {
         // given
         val transaction = aTransaction(status = TransactionStatus.SUBMITTED, fireblocksTransactionId = "fb-tx-inv")
         every { transactionRepository.findByFireblocksTransactionId("fb-tx-inv") } returns transaction
+        every { transactionRepository.findByIdForUpdate(transaction.id) } returns transaction
         every { stateMachine.transition(transaction, TransactionStatus.CONFIRMED) } throws
             InvalidTransactionStateException(transaction.id.value.toString(), "SUBMITTED", "CONFIRMED")
 
