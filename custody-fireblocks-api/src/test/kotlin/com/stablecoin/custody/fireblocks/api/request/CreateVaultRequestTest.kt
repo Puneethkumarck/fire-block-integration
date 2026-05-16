@@ -6,7 +6,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 class CreateVaultRequestTest {
-    private val validator: Validator = Validation.buildDefaultValidatorFactory().validator
+    private val validator: Validator = Validation.buildDefaultValidatorFactory().use { it.validator }
 
     @Test
     fun `should reject blank customerRefId`() {

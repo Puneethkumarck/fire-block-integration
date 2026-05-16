@@ -1,5 +1,6 @@
 package com.stablecoin.custody.fireblocks.api.test.fixtures
 
+import com.stablecoin.custody.fireblocks.api.error.ApiError
 import com.stablecoin.custody.fireblocks.api.response.BalanceResponse
 import com.stablecoin.custody.fireblocks.api.response.DepositAddressResponse
 import com.stablecoin.custody.fireblocks.api.response.EstimateFeeResponse
@@ -118,4 +119,18 @@ fun anEstimateFeeResponse(
     low = low,
     medium = medium,
     high = high,
+)
+
+fun anApiError(
+    code: String = "CUSTODY-1001",
+    status: String = "Not Found",
+    message: String = "Resource not found",
+    traceId: String? = "trace-001",
+    details: Map<String, String?>? = null,
+) = ApiError(
+    code = code,
+    status = status,
+    message = message,
+    traceId = traceId,
+    details = details,
 )
