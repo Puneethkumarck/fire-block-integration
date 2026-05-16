@@ -31,6 +31,16 @@ dependencies {
     api("jakarta.validation:jakarta.validation-api")
     api("com.fasterxml.jackson.core:jackson-annotations")
     api("org.apache.avro:avro:1.12.1")
+
+    testImplementation("org.hibernate.validator:hibernate-validator")
+    testImplementation("org.apache.tomcat.embed:tomcat-embed-el")
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.assertj:assertj-core")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 tasks.matching { it.name == "compileTestFixturesKotlin" }.configureEach {
