@@ -68,7 +68,7 @@ dependencies {
         exclude(group = "org.mockito")
     }
     testImplementation("io.mockk:mockk:1.14.9")
-    testImplementation("com.ninja-squad:springmockk:4.0.2")
+    testImplementation("com.ninja-squad:springmockk:5.0.1")
     testImplementation("com.tngtech.archunit:archunit-junit5:1.4.2")
 
     testFixturesImplementation("org.springframework.boot:spring-boot-starter-test") {
