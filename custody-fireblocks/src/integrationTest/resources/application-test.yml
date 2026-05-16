@@ -38,6 +38,8 @@ fireblocks:
     private-key-name: fireblocks/private-key
     api-key-name: fireblocks/api-key
     webhook-public-key-name: fireblocks/webhook-public-key
+  health:
+    enabled: false
 
 namastack:
   outbox:
@@ -47,3 +49,8 @@ namastack:
       table-prefix: "custody_"
       schema-initialization:
         enabled: false
+
+custody:
+  polling:
+    interval: 999999999
+    vault-interval: 999999999

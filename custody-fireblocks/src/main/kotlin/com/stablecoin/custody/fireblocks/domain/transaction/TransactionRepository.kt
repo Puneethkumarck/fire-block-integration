@@ -22,4 +22,6 @@ interface TransactionRepository {
         cutoff: Instant,
         limit: Int,
     ): List<Transaction>
+
+    fun countByStatus(status: TransactionStatus): Long
 }
