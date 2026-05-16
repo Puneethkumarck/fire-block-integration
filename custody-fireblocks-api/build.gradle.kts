@@ -30,7 +30,7 @@ repositories {
 dependencies {
     api("jakarta.validation:jakarta.validation-api")
     api("com.fasterxml.jackson.core:jackson-annotations")
-    api("org.apache.avro:avro:1.12.0")
+    api("org.apache.avro:avro:1.12.1")
 }
 
 tasks.matching { it.name == "compileTestFixturesKotlin" }.configureEach {
