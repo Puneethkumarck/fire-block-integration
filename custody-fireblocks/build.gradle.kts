@@ -52,7 +52,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-kafka")
-    implementation("io.namastack:namastack-outbox-starter-jdbc:1.1.0")
+    implementation("io.namastack:namastack-outbox-starter-jdbc:1.5.0")
     implementation(kotlin("reflect"))
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")
