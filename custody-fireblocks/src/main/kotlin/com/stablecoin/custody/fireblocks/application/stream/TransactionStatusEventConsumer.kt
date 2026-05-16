@@ -3,8 +3,7 @@ package com.stablecoin.custody.fireblocks.application.stream
 import com.stablecoin.custody.fireblocks.domain.event.TransactionStatusChangedEvent
 import com.stablecoin.custody.fireblocks.domain.exception.InvalidTransactionStateException
 import com.stablecoin.custody.fireblocks.domain.shared.logger
-import com.stablecoin.custody.fireblocks.domain.transaction.TransactionRepository
-import com.stablecoin.custody.fireblocks.domain.transaction.TransactionStatus
+import com.stablecoin.custody.fireblocks.domain.transaction.TransactionStatusUpdateHandler
 import org.springframework.kafka.annotation.BackOff
 import org.springframework.kafka.annotation.DltHandler
 import org.springframework.kafka.annotation.KafkaListener
@@ -13,13 +12,12 @@ import org.springframework.kafka.retrytopic.DltStrategy
 import org.springframework.kafka.support.KafkaHeaders
 import org.springframework.messaging.handler.annotation.Header
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 private val log = logger<TransactionStatusEventConsumer>()
 
 @Component
 class TransactionStatusEventConsumer(
-    private val transactionRepository: TransactionRepository,
+    private val handler: TransactionStatusUpdateHandler,
 ) {
     @RetryableTopic(
         attempts = "4",
@@ -32,43 +30,13 @@ class TransactionStatusEventConsumer(
         topics = [TransactionStatusChangedEvent.TOPIC],
         groupId = "custody-fireblocks",
     )
-    @Transactional
     fun consume(event: TransactionStatusChangedEvent) {
         log.info(
             "Received transaction status change: transactionId={}, newStatus={}",
             event.transactionId,
             event.newStatus,
         )
-
-        val transaction = transactionRepository.findByExternalTxId(event.externalTxId)
-        if (transaction == null) {
-            log.warn("Transaction not found for externalTxId={}, skipping", event.externalTxId)
-            return
-        }
-
-        val newStatus =
-            TransactionStatus.entries.find { it.name == event.newStatus }
-                ?: throw IllegalArgumentException("Unknown transaction status: ${event.newStatus}")
-
-        if (transaction.status == newStatus) {
-            log.info("Transaction {} already in status {}, skipping (idempotent)", event.transactionId, newStatus)
-            return
-        }
-
-        if (transaction.status.terminal) {
-            log.warn("Transaction {} already in terminal status {}, skipping", event.transactionId, transaction.status)
-            return
-        }
-
-        val updated =
-            transaction.updateStatus(
-                newStatus = newStatus,
-                fireblocksStatus = event.fireblocksStatus ?: event.newStatus,
-                fireblocksSubStatus = event.subStatus,
-                txHash = event.txHash,
-            )
-        transactionRepository.save(updated)
-        log.info("Updated transaction {} status: {} -> {}", event.transactionId, event.previousStatus, event.newStatus)
+        handler.handle(event)
     }
 
     @DltHandler
