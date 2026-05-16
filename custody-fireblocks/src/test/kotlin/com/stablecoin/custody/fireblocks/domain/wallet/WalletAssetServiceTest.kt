@@ -102,6 +102,9 @@ class WalletAssetServiceTest {
         // then
         assertThat(result).usingRecursiveComparison().isEqualTo(existingAsset)
         verify(exactly = 0) { fireblocksClient.createWalletAsset(any(), any()) }
+        verify(exactly = 0) { walletAssetRepository.save(any()) }
+        verify(exactly = 0) { assetEventPublisher.publish(any()) }
+        verify(exactly = 0) { auditLogRepository.save(any()) }
     }
 
     @Test
@@ -323,6 +326,9 @@ class WalletAssetServiceTest {
         // then
         assertThat(result).usingRecursiveComparison().isEqualTo(existingAddress)
         verify(exactly = 0) { fireblocksClient.generateDepositAddress(any(), any()) }
+        verify(exactly = 0) { depositAddressRepository.save(any()) }
+        verify(exactly = 0) { addressEventPublisher.publish(any()) }
+        verify(exactly = 0) { auditLogRepository.save(any()) }
     }
 
     @Test

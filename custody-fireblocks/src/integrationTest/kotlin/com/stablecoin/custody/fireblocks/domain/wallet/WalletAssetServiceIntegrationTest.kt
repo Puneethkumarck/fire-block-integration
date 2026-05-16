@@ -6,10 +6,15 @@ import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.stablecoin.custody.fireblocks.AbstractIntegrationTest
+import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
+import com.stablecoin.custody.fireblocks.domain.audit.AuditOperation
+import com.stablecoin.custody.fireblocks.domain.audit.AuditStatus
 import com.stablecoin.custody.fireblocks.domain.exception.AssetNotFoundException
+import com.stablecoin.custody.fireblocks.domain.exception.VaultNotActiveException
 import com.stablecoin.custody.fireblocks.domain.exception.VaultNotFoundException
 import com.stablecoin.custody.fireblocks.domain.vault.VaultId
 import com.stablecoin.custody.fireblocks.domain.vault.VaultRepository
+import com.stablecoin.custody.fireblocks.domain.vault.VaultStatus
 import com.stablecoin.custody.fireblocks.test.fixtures.aDepositAddress
 import com.stablecoin.custody.fireblocks.test.fixtures.aGenerateAddressCommand
 import com.stablecoin.custody.fireblocks.test.fixtures.aVault
@@ -40,6 +45,9 @@ class WalletAssetServiceIntegrationTest : AbstractIntegrationTest() {
 
     @Autowired
     private lateinit var depositAddressRepository: DepositAddressRepository
+
+    @Autowired
+    private lateinit var auditLogRepository: AuditLogRepository
 
     companion object {
         private val wireMock = WireMockServer(wireMockConfig().dynamicPort())
@@ -266,5 +274,80 @@ class WalletAssetServiceIntegrationTest : AbstractIntegrationTest() {
         // when / then
         assertThatThrownBy { walletAssetService.generateDepositAddress(command) }
             .isInstanceOf(AssetNotFoundException::class.java)
+    }
+
+    @Test
+    fun `should reject asset activation for inactive vault`() {
+        // given
+        val vault = vaultRepository.save(aVault(status = VaultStatus.PENDING, fireblocksVaultId = null))
+        val command = anActivateAssetCommand(vaultId = vault.id, currency = "BTC", protocol = "BTC")
+
+        // when / then
+        assertThatThrownBy { walletAssetService.activateAsset(command) }
+            .isInstanceOf(VaultNotActiveException::class.java)
+    }
+
+    @Test
+    fun `should persist audit log on asset activation`() {
+        // given
+        val vault = vaultRepository.save(aVault(fireblocksVaultId = "fb-int-009"))
+        val command = anActivateAssetCommand(vaultId = vault.id, currency = "BTC", protocol = "BTC")
+        wireMock.stubFor(
+            post(urlPathEqualTo("/v1/vault/accounts/fb-int-009/BTC"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"BTC","available":"0"}"""),
+                ),
+        )
+
+        // when
+        val result = walletAssetService.activateAsset(command)
+
+        // then
+        val auditLogs = auditLogRepository.findByResourceId(result.id.value.toString())
+        assertThat(auditLogs).hasSize(1)
+        assertThat(auditLogs.first().operation).isEqualTo(AuditOperation.ASSET_ACTIVATED)
+        assertThat(auditLogs.first().status).isEqualTo(AuditStatus.SUCCESS)
+        assertThat(auditLogs.first().actor).isEqualTo("system")
+    }
+
+    @Test
+    fun `should persist audit log on address generation`() {
+        // given
+        val vault = vaultRepository.save(aVault(fireblocksVaultId = "fb-int-010"))
+        val activateCommand = anActivateAssetCommand(vaultId = vault.id, currency = "ETH", protocol = "ETH")
+        wireMock.stubFor(
+            post(urlPathEqualTo("/v1/vault/accounts/fb-int-010/ETH"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"ETH","available":"0"}"""),
+                ),
+        )
+        walletAssetService.activateAsset(activateCommand)
+
+        val addressCommand = aGenerateAddressCommand(vaultId = vault.id, currency = "ETH", protocol = "ETH")
+        wireMock.stubFor(
+            post(urlPathEqualTo("/v1/vault/accounts/fb-int-010/ETH/addresses"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"address":"0xaudit123","tag":null,"legacyAddress":null}"""),
+                ),
+        )
+
+        // when
+        val result = walletAssetService.generateDepositAddress(addressCommand)
+
+        // then
+        val auditLogs = auditLogRepository.findByResourceId(result.id.value.toString())
+        assertThat(auditLogs).hasSize(1)
+        assertThat(auditLogs.first().operation).isEqualTo(AuditOperation.ADDRESS_GENERATED)
+        assertThat(auditLogs.first().status).isEqualTo(AuditStatus.SUCCESS)
+        assertThat(auditLogs.first().actor).isEqualTo("system")
     }
 }
