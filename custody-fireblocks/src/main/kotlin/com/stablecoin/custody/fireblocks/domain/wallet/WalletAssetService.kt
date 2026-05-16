@@ -44,7 +44,10 @@ class WalletAssetService(
             supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol)
                 ?: throw AssetNotFoundException(command.vaultId.value.toString(), "${command.currency}/${command.protocol}")
 
-        fireblocksClient.createWalletAsset(vault.fireblocksVaultId!!, supportedAsset.fireblocksAssetId)
+        val fireblocksVaultId =
+            vault.fireblocksVaultId
+                ?: throw IllegalStateException("Active vault ${vault.id} has no fireblocksVaultId")
+        fireblocksClient.createWalletAsset(fireblocksVaultId, supportedAsset.fireblocksAssetId)
 
         val walletAsset = WalletAsset.create(command.vaultId, command.currency, command.protocol, supportedAsset.fireblocksAssetId)
         val saved = walletAssetRepository.save(walletAsset)
@@ -76,7 +79,10 @@ class WalletAssetService(
         val vault =
             vaultRepository.findById(command.vaultId)
                 ?: throw VaultNotFoundException(command.vaultId.value.toString())
-        val fbAddress = fireblocksClient.generateDepositAddress(vault.fireblocksVaultId!!, walletAsset.fireblocksAssetId)
+        val fireblocksVaultId =
+            vault.fireblocksVaultId
+                ?: throw IllegalStateException("Active vault ${vault.id} has no fireblocksVaultId")
+        val fbAddress = fireblocksClient.generateDepositAddress(fireblocksVaultId, walletAsset.fireblocksAssetId)
 
         val address =
             DepositAddress.create(

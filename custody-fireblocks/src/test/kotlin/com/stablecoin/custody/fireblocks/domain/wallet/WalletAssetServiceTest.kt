@@ -145,7 +145,18 @@ class WalletAssetServiceTest {
         val result = service.activateAsset(command)
 
         // then
-        assertThat(result.fireblocksAssetId).isEqualTo("EURC")
+        val expected =
+            aWalletAsset(
+                vaultId = vault.id,
+                currency = "EURC",
+                protocol = "ETH",
+                fireblocksAssetId = "EURC",
+                status = AssetStatus.ACTIVE,
+            )
+        assertThat(result)
+            .usingRecursiveComparison()
+            .ignoringFields("id", "createdAt", "updatedAt")
+            .isEqualTo(expected)
     }
 
     @Test
@@ -201,7 +212,16 @@ class WalletAssetServiceTest {
         service.activateAsset(command)
 
         // then
-        verify { assetEventPublisher.publish(any<WalletAssetCreatedEvent>()) }
+        verify {
+            assetEventPublisher.publish(
+                match<WalletAssetCreatedEvent> {
+                    it.vaultId == vault.id.value &&
+                        it.currency == "BTC" &&
+                        it.protocol == "BTC" &&
+                        it.fireblocksAssetId == "BTC"
+                },
+            )
+        }
     }
 
     @Test
@@ -226,7 +246,8 @@ class WalletAssetServiceTest {
             auditLogRepository.save(
                 match {
                     it.operation == AuditOperation.ASSET_ACTIVATED &&
-                        it.status == AuditStatus.SUCCESS
+                        it.status == AuditStatus.SUCCESS &&
+                        it.actor == "system"
                 },
             )
         }
@@ -334,7 +355,14 @@ class WalletAssetServiceTest {
         service.generateDepositAddress(command)
 
         // then
-        verify { addressEventPublisher.publish(any<AddressCreatedEvent>()) }
+        verify {
+            addressEventPublisher.publish(
+                match<AddressCreatedEvent> {
+                    it.vaultId == vault.id.value &&
+                        it.address == "0x1234567890abcdef1234567890abcdef12345678"
+                },
+            )
+        }
     }
 
     @Test
@@ -360,7 +388,8 @@ class WalletAssetServiceTest {
             auditLogRepository.save(
                 match {
                     it.operation == AuditOperation.ADDRESS_GENERATED &&
-                        it.status == AuditStatus.SUCCESS
+                        it.status == AuditStatus.SUCCESS &&
+                        it.actor == "system"
                 },
             )
         }

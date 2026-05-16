@@ -10,8 +10,10 @@ import com.stablecoin.custody.fireblocks.domain.exception.AssetNotFoundException
 import com.stablecoin.custody.fireblocks.domain.exception.VaultNotFoundException
 import com.stablecoin.custody.fireblocks.domain.vault.VaultId
 import com.stablecoin.custody.fireblocks.domain.vault.VaultRepository
+import com.stablecoin.custody.fireblocks.test.fixtures.aDepositAddress
 import com.stablecoin.custody.fireblocks.test.fixtures.aGenerateAddressCommand
 import com.stablecoin.custody.fireblocks.test.fixtures.aVault
+import com.stablecoin.custody.fireblocks.test.fixtures.aWalletAsset
 import com.stablecoin.custody.fireblocks.test.fixtures.anActivateAssetCommand
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -85,11 +87,18 @@ class WalletAssetServiceIntegrationTest : AbstractIntegrationTest() {
         val result = walletAssetService.activateAsset(command)
 
         // then
-        assertThat(result.vaultId).isEqualTo(vault.id)
-        assertThat(result.currency).isEqualTo("BTC")
-        assertThat(result.protocol).isEqualTo("BTC")
-        assertThat(result.fireblocksAssetId).isEqualTo("BTC")
-        assertThat(result.status).isEqualTo(AssetStatus.ACTIVE)
+        val expected =
+            aWalletAsset(
+                vaultId = vault.id,
+                currency = "BTC",
+                protocol = "BTC",
+                fireblocksAssetId = "BTC",
+                status = AssetStatus.ACTIVE,
+            )
+        assertThat(result)
+            .usingRecursiveComparison()
+            .ignoringFields("id", "createdAt", "updatedAt")
+            .isEqualTo(expected)
     }
 
     @Test
@@ -111,9 +120,18 @@ class WalletAssetServiceIntegrationTest : AbstractIntegrationTest() {
         val result = walletAssetService.activateAsset(command)
 
         // then
-        assertThat(result.fireblocksAssetId).isEqualTo("EURC")
-        assertThat(result.currency).isEqualTo("EURC")
-        assertThat(result.protocol).isEqualTo("ETH")
+        val expected =
+            aWalletAsset(
+                vaultId = vault.id,
+                currency = "EURC",
+                protocol = "ETH",
+                fireblocksAssetId = "EURC",
+                status = AssetStatus.ACTIVE,
+            )
+        assertThat(result)
+            .usingRecursiveComparison()
+            .ignoringFields("id", "createdAt", "updatedAt")
+            .isEqualTo(expected)
     }
 
     @Test
@@ -147,9 +165,17 @@ class WalletAssetServiceIntegrationTest : AbstractIntegrationTest() {
         val result = walletAssetService.generateDepositAddress(addressCommand)
 
         // then
-        assertThat(result.address).isEqualTo("0xabc123def456")
-        assertThat(result.tag).isNull()
-        assertThat(result.legacyAddress).isNull()
+        val expected =
+            aDepositAddress(
+                walletAssetId = result.walletAssetId,
+                address = "0xabc123def456",
+                tag = null,
+                legacyAddress = null,
+            )
+        assertThat(result)
+            .usingRecursiveComparison()
+            .ignoringFields("id", "createdAt", "updatedAt")
+            .isEqualTo(expected)
     }
 
     @Test
