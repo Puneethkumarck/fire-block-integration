@@ -93,10 +93,12 @@ namastack:
 
 resilience4j:
   bulkhead:
+    bulkheadAspectOrder: 1
     instances:
       fireblocks:
         maxConcurrentCalls: 25
   circuitbreaker:
+    circuitBreakerAspectOrder: 2
     instances:
       fireblocks:
         failureRateThreshold: 50
@@ -110,6 +112,7 @@ resilience4j:
         slidingWindowSize: 10
         waitDurationInOpenState: 30s
   retry:
+    retryAspectOrder: 3
     instances:
       fireblocks:
         maxAttempts: 3
