@@ -1,9 +1,11 @@
 package com.stablecoin.custody.fireblocks.test.fixtures
 
 import com.stablecoin.custody.fireblocks.domain.vault.VaultId
+import com.stablecoin.custody.fireblocks.domain.wallet.ActivateAssetCommand
 import com.stablecoin.custody.fireblocks.domain.wallet.AssetStatus
 import com.stablecoin.custody.fireblocks.domain.wallet.DepositAddress
 import com.stablecoin.custody.fireblocks.domain.wallet.DepositAddressId
+import com.stablecoin.custody.fireblocks.domain.wallet.GenerateAddressCommand
 import com.stablecoin.custody.fireblocks.domain.wallet.SupportedAsset
 import com.stablecoin.custody.fireblocks.domain.wallet.WalletAsset
 import com.stablecoin.custody.fireblocks.domain.wallet.WalletAssetId
@@ -70,4 +72,24 @@ fun aDepositAddress(
     createdAt = createdAt,
     updatedAt = updatedAt,
     version = version,
+)
+
+fun anActivateAssetCommand(
+    vaultId: VaultId = VaultId(UUID.randomUUID()),
+    currency: String = "BTC",
+    protocol: String = "BTC",
+) = ActivateAssetCommand(
+    vaultId = vaultId,
+    currency = currency,
+    protocol = protocol,
+)
+
+fun aGenerateAddressCommand(
+    vaultId: VaultId = VaultId(UUID.randomUUID()),
+    currency: String = "BTC",
+    protocol: String = "BTC",
+) = GenerateAddressCommand(
+    vaultId = vaultId,
+    currency = currency,
+    protocol = protocol,
 )
