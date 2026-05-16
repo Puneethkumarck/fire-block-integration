@@ -60,7 +60,7 @@ dependencies {
     implementation("io.github.resilience4j:resilience4j-spring-boot4:2.4.0")
     implementation("net.javacrumbs.shedlock:shedlock-spring:6.8.0")
     implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:6.8.0")
-    implementation("net.logstash.logback:logstash-logback-encoder:8.1")
+    implementation("net.logstash.logback:logstash-logback-encoder:9.0")
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")
     implementation(platform("software.amazon.awssdk:bom:2.44.7"))
