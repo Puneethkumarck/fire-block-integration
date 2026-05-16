@@ -23,7 +23,6 @@ internal class FireblocksVaultAdapter(
 
     @Bulkhead(name = "fireblocks")
     @CircuitBreaker(name = "fireblocks")
-    @Retry(name = "fireblocks")
     override fun createVault(
         name: String,
         customerRefId: String,
@@ -44,7 +43,6 @@ internal class FireblocksVaultAdapter(
 
     @Bulkhead(name = "fireblocks")
     @CircuitBreaker(name = "fireblocks")
-    @Retry(name = "fireblocks")
     override fun createWalletAsset(
         vaultAccountId: String,
         assetId: String,
@@ -56,7 +54,6 @@ internal class FireblocksVaultAdapter(
 
     @Bulkhead(name = "fireblocks")
     @CircuitBreaker(name = "fireblocks")
-    @Retry(name = "fireblocks")
     override fun generateDepositAddress(
         vaultAccountId: String,
         assetId: String,

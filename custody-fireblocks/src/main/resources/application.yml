@@ -19,7 +19,7 @@ management:
           include: readinessState,db
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
 
 spring:
   application:

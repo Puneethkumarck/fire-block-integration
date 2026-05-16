@@ -23,7 +23,7 @@ class VaultRecoveryJobTest {
     fun `should recover pending vault with existing fireblocksVaultId by verifying in Fireblocks`() {
         // given
         val vault = aVault(status = VaultStatus.PENDING, fireblocksVaultId = "fb-vault-existing")
-        every { vaultRepository.findPendingOlderThan(any()) } returns listOf(vault)
+        every { vaultRepository.findPendingOlderThan(any(), 50) } returns listOf(vault)
         every { fireblocksVaultPort.getVault("fb-vault-existing") } returns
             VaultResult(id = "fb-vault-existing", name = vault.name)
         every { vaultRepository.save(any()) } returnsArgument 0
@@ -44,7 +44,7 @@ class VaultRecoveryJobTest {
     fun `should recover pending vault without fireblocksVaultId by creating in Fireblocks`() {
         // given
         val vault = aVault(status = VaultStatus.PENDING, fireblocksVaultId = null)
-        every { vaultRepository.findPendingOlderThan(any()) } returns listOf(vault)
+        every { vaultRepository.findPendingOlderThan(any(), 50) } returns listOf(vault)
         every { fireblocksVaultPort.createVault(vault.name, vault.customerRefId) } returns
             VaultResult(id = "fb-vault-999", name = vault.name)
         every { vaultRepository.save(any()) } returnsArgument 0
@@ -64,7 +64,7 @@ class VaultRecoveryJobTest {
     fun `should mark vault as failed when recovery fails`() {
         // given
         val vault = aVault(status = VaultStatus.PENDING, fireblocksVaultId = null)
-        every { vaultRepository.findPendingOlderThan(any()) } returns listOf(vault)
+        every { vaultRepository.findPendingOlderThan(any(), 50) } returns listOf(vault)
         every { fireblocksVaultPort.createVault(vault.name, vault.customerRefId) } throws
             RuntimeException("API error")
         every { vaultRepository.save(any()) } returnsArgument 0
@@ -81,7 +81,7 @@ class VaultRecoveryJobTest {
     @Test
     fun `should not process when no pending vaults exist`() {
         // given
-        every { vaultRepository.findPendingOlderThan(any()) } returns emptyList()
+        every { vaultRepository.findPendingOlderThan(any(), 50) } returns emptyList()
 
         // when
         job.recoverPendingVaults()
@@ -95,7 +95,7 @@ class VaultRecoveryJobTest {
         // given
         val vault1 = aVault(status = VaultStatus.PENDING, fireblocksVaultId = null, name = "Vault 1")
         val vault2 = aVault(status = VaultStatus.PENDING, fireblocksVaultId = null, name = "Vault 2")
-        every { vaultRepository.findPendingOlderThan(any()) } returns listOf(vault1, vault2)
+        every { vaultRepository.findPendingOlderThan(any(), 50) } returns listOf(vault1, vault2)
         every { fireblocksVaultPort.createVault(vault1.name, vault1.customerRefId) } throws
             RuntimeException("API error")
         every { fireblocksVaultPort.createVault(vault2.name, vault2.customerRefId) } returns

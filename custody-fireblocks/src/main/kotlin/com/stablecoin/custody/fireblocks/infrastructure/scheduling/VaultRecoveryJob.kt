@@ -17,10 +17,10 @@ class VaultRecoveryJob(
     private val fireblocksVaultPort: FireblocksVaultPort,
 ) {
     @Scheduled(fixedDelayString = "\${custody.polling.vault-interval:120000}")
-    @SchedulerLock(name = "vaultRecovery", lockAtLeastFor = "30s", lockAtMostFor = "90s")
+    @SchedulerLock(name = "vaultRecovery", lockAtLeastFor = "30s", lockAtMostFor = "5m")
     fun recoverPendingVaults() {
         val cutoff = Instant.now().minus(5, ChronoUnit.MINUTES)
-        val pendingVaults = vaultRepository.findPendingOlderThan(cutoff)
+        val pendingVaults = vaultRepository.findPendingOlderThan(cutoff, 50)
 
         if (pendingVaults.isEmpty()) {
             return

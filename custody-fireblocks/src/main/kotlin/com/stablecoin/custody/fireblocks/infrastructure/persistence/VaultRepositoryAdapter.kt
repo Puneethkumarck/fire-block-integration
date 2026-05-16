@@ -4,6 +4,7 @@ import com.stablecoin.custody.fireblocks.domain.vault.Vault
 import com.stablecoin.custody.fireblocks.domain.vault.VaultId
 import com.stablecoin.custody.fireblocks.domain.vault.VaultRepository
 import com.stablecoin.custody.fireblocks.domain.vault.VaultStatus
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Component
 import java.time.Instant
 
@@ -24,8 +25,13 @@ internal class VaultRepositoryAdapter(
 
     override fun save(vault: Vault): Vault = vault.toEntity().let { jpaRepository.saveAndFlush(it) }.toDomain()
 
-    override fun findPendingOlderThan(cutoff: Instant): List<Vault> =
-        jpaRepository.findPendingOlderThan(VaultStatus.PENDING, cutoff).map { it.toDomain() }
+    override fun findPendingOlderThan(
+        cutoff: Instant,
+        limit: Int,
+    ): List<Vault> =
+        jpaRepository
+            .findPendingOlderThan(VaultStatus.PENDING, cutoff, PageRequest.ofSize(limit))
+            .map { it.toDomain() }
 
     fun Vault.toEntity() =
         VaultEntity(

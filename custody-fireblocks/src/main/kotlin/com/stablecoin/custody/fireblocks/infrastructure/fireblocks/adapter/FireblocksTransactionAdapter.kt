@@ -28,7 +28,6 @@ internal class FireblocksTransactionAdapter(
 
     @Bulkhead(name = "fireblocks")
     @CircuitBreaker(name = "fireblocks")
-    @Retry(name = "fireblocks")
     override fun submitTransaction(command: FireblocksSubmitCommand): TransactionResult {
         log.info(
             "Submitting transaction: externalTxId={}, sourceVaultId={}, assetId={}",

@@ -19,7 +19,7 @@ class TransactionPollingJob(
     private val transactionStatusHandler: TransactionStatusHandler,
 ) {
     @Scheduled(fixedDelayString = "\${custody.polling.interval:120000}")
-    @SchedulerLock(name = "transactionPolling", lockAtLeastFor = "30s", lockAtMostFor = "90s")
+    @SchedulerLock(name = "transactionPolling", lockAtLeastFor = "30s", lockAtMostFor = "5m")
     fun pollStaleTransactions() {
         val cutoff = Instant.now().minus(5, ChronoUnit.MINUTES)
         val staleTransactions = transactionRepository.findStaleNonTerminal(cutoff, 50)
@@ -52,7 +52,7 @@ class TransactionPollingJob(
     }
 
     @Scheduled(fixedDelayString = "\${custody.polling.interval:120000}")
-    @SchedulerLock(name = "staleCreatedTransactions", lockAtLeastFor = "30s", lockAtMostFor = "90s")
+    @SchedulerLock(name = "staleCreatedTransactions", lockAtLeastFor = "30s", lockAtMostFor = "5m")
     fun recoverStaleCreatedTransactions() {
         val cutoff = Instant.now().minus(5, ChronoUnit.MINUTES)
         val staleCreated = transactionRepository.findStaleCreated(cutoff, 50)

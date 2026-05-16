@@ -9,5 +9,8 @@ interface VaultRepository {
 
     fun save(vault: Vault): Vault
 
-    fun findPendingOlderThan(cutoff: Instant): List<Vault>
+    fun findPendingOlderThan(
+        cutoff: Instant,
+        limit: Int,
+    ): List<Vault>
 }

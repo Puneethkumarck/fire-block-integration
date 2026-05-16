@@ -130,7 +130,7 @@ class VaultPersistenceIntegrationTest : AbstractIntegrationTest() {
 
         // when
         val cutoff = Instant.now().minus(1, ChronoUnit.HOURS)
-        val result = vaultRepository.findPendingOlderThan(cutoff)
+        val result = vaultRepository.findPendingOlderThan(cutoff, 50)
 
         // then
         assertThat(result).hasSize(1)
