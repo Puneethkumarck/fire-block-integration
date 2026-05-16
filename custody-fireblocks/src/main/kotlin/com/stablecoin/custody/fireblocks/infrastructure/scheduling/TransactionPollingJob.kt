@@ -53,7 +53,7 @@ class TransactionPollingJob(
 
     @Scheduled(fixedDelayString = "\${custody.polling.interval:120000}")
     @SchedulerLock(name = "staleCreatedTransactions", lockAtLeastFor = "30s", lockAtMostFor = "90s")
-    fun failStaleCreatedTransactions() {
+    fun recoverStaleCreatedTransactions() {
         val cutoff = Instant.now().minus(10, ChronoUnit.MINUTES)
         val staleCreated = transactionRepository.findStaleCreated(cutoff, 50)
 
@@ -61,15 +61,25 @@ class TransactionPollingJob(
             return
         }
 
-        log.info("Failing {} stale CREATED transactions", staleCreated.size)
+        log.info("Recovering {} stale CREATED transactions", staleCreated.size)
 
         staleCreated.forEach { transaction ->
             try {
-                val failed = transaction.markFailed()
-                transactionRepository.save(failed)
-                log.info("Marked stale CREATED transaction as FAILED: id={}", transaction.id.value)
+                val existing = fireblocksTransactionPort.getByExternalId(transaction.externalTxId)
+                if (existing != null) {
+                    transactionStatusHandler.handleStatusUpdate(
+                        fireblocksTxId = existing.id,
+                        fireblocksStatus = existing.status,
+                        subStatus = existing.subStatus,
+                        txHash = existing.txHash,
+                    )
+                } else {
+                    val failed = transaction.markFailed()
+                    transactionRepository.save(failed)
+                    log.warn("Marked stale CREATED transaction as FAILED: id={}", transaction.id.value)
+                }
             } catch (e: Exception) {
-                log.error("Failed to mark stale transaction: id={}", transaction.id.value, e)
+                log.error("Failed to recover CREATED transaction: id={}", transaction.id.value, e)
             }
         }
     }

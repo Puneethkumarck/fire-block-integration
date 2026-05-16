@@ -30,10 +30,17 @@ class VaultRecoveryJob(
 
         pendingVaults.forEach { vault ->
             try {
-                val result = fireblocksVaultPort.createVault(vault.name, vault.customerRefId)
-                val activated = vault.activate(result.id)
-                vaultRepository.save(activated)
-                log.info("Recovered vault: id={}, fireblocksVaultId={}", vault.id.value, result.id)
+                if (vault.fireblocksVaultId != null) {
+                    val result = fireblocksVaultPort.getVault(vault.fireblocksVaultId)
+                    val activated = vault.activate(result.id)
+                    vaultRepository.save(activated)
+                    log.info("Recovered vault with existing fireblocksVaultId: id={}", vault.id.value)
+                } else {
+                    val result = fireblocksVaultPort.createVault(vault.name, vault.customerRefId)
+                    val activated = vault.activate(result.id)
+                    vaultRepository.save(activated)
+                    log.info("Recovered vault by re-creating: id={}, fireblocksVaultId={}", vault.id.value, result.id)
+                }
             } catch (e: Exception) {
                 log.error("Failed to recover vault: id={}", vault.id.value, e)
                 val failed = vault.markFailed()

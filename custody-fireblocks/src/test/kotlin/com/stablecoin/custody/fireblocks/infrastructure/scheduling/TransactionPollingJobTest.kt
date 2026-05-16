@@ -120,14 +120,38 @@ class TransactionPollingJobTest {
     }
 
     @Test
-    fun `should fail stale created transactions`() {
+    fun `should recover stale created transaction when found in Fireblocks`() {
         // given
         val transaction = aTransaction(status = TransactionStatus.CREATED)
         every { transactionRepository.findStaleCreated(any(), 50) } returns listOf(transaction)
+        every { fireblocksTransactionPort.getByExternalId(transaction.externalTxId) } returns
+            TransactionResult(id = "fb-tx-found", status = "SUBMITTED", subStatus = null, txHash = null)
+        every { transactionStatusHandler.handleStatusUpdate(any(), any(), any(), any()) } just runs
+
+        // when
+        job.recoverStaleCreatedTransactions()
+
+        // then
+        verify {
+            transactionStatusHandler.handleStatusUpdate(
+                fireblocksTxId = "fb-tx-found",
+                fireblocksStatus = "SUBMITTED",
+                subStatus = null,
+                txHash = null,
+            )
+        }
+    }
+
+    @Test
+    fun `should mark stale created transaction as FAILED when not found in Fireblocks`() {
+        // given
+        val transaction = aTransaction(status = TransactionStatus.CREATED)
+        every { transactionRepository.findStaleCreated(any(), 50) } returns listOf(transaction)
+        every { fireblocksTransactionPort.getByExternalId(transaction.externalTxId) } returns null
         every { transactionRepository.save(any()) } returnsArgument 0
 
         // when
-        job.failStaleCreatedTransactions()
+        job.recoverStaleCreatedTransactions()
 
         // then
         verify {
@@ -136,14 +160,14 @@ class TransactionPollingJobTest {
     }
 
     @Test
-    fun `should not fail when no stale created transactions exist`() {
+    fun `should not process when no stale created transactions exist`() {
         // given
         every { transactionRepository.findStaleCreated(any(), 50) } returns emptyList()
 
         // when
-        job.failStaleCreatedTransactions()
+        job.recoverStaleCreatedTransactions()
 
         // then
-        verify(exactly = 0) { transactionRepository.save(any()) }
+        verify(exactly = 0) { fireblocksTransactionPort.getByExternalId(any()) }
     }
 }

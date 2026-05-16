@@ -20,7 +20,28 @@ class VaultRecoveryJobTest {
     private val job = VaultRecoveryJob(vaultRepository, fireblocksVaultPort)
 
     @Test
-    fun `should recover pending vaults by creating them on Fireblocks`() {
+    fun `should recover pending vault with existing fireblocksVaultId by verifying in Fireblocks`() {
+        // given
+        val vault = aVault(status = VaultStatus.PENDING, fireblocksVaultId = "fb-vault-existing")
+        every { vaultRepository.findPendingOlderThan(any()) } returns listOf(vault)
+        every { fireblocksVaultPort.getVault("fb-vault-existing") } returns
+            VaultResult(id = "fb-vault-existing", name = vault.name)
+        every { vaultRepository.save(any()) } returnsArgument 0
+
+        // when
+        job.recoverPendingVaults()
+
+        // then
+        verify {
+            vaultRepository.save(
+                match { it.status == VaultStatus.ACTIVE && it.fireblocksVaultId == "fb-vault-existing" },
+            )
+        }
+        verify(exactly = 0) { fireblocksVaultPort.createVault(any(), any()) }
+    }
+
+    @Test
+    fun `should recover pending vault without fireblocksVaultId by creating in Fireblocks`() {
         // given
         val vault = aVault(status = VaultStatus.PENDING, fireblocksVaultId = null)
         every { vaultRepository.findPendingOlderThan(any()) } returns listOf(vault)

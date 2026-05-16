@@ -47,7 +47,7 @@ class TransactionPollingJobIntegrationTest : AbstractIntegrationTest() {
         entityManager.clear()
 
         // when
-        transactionPollingJob.failStaleCreatedTransactions()
+        transactionPollingJob.recoverStaleCreatedTransactions()
 
         // then
         val result = transactionRepository.findById(recentTransaction.id)
