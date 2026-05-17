@@ -4,6 +4,7 @@ import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import com.stablecoin.custody.fireblocks.domain.audit.AuditOperation
 import com.stablecoin.custody.fireblocks.domain.audit.AuditStatus
 import com.stablecoin.custody.fireblocks.domain.event.VaultCreatedEvent
+import com.stablecoin.custody.fireblocks.domain.exception.VaultAlreadyExistsException
 import com.stablecoin.custody.fireblocks.domain.port.EventPublisher
 import com.stablecoin.custody.fireblocks.domain.port.FireblocksVaultPort
 import com.stablecoin.custody.fireblocks.test.fixtures.aCreateVaultCommand
@@ -16,6 +17,7 @@ import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 
@@ -58,17 +60,15 @@ class VaultCreationServiceTest {
     }
 
     @Test
-    fun `should return existing vault when customerRefId already exists`() {
+    fun `should throw VaultAlreadyExistsException when customerRefId already exists`() {
         // given
         val command = aCreateVaultCommand()
         val existingVault = aVault(customerRefId = command.customerRefId)
         every { vaultRepository.findByCustomerRefId(command.customerRefId) } returns existingVault
 
-        // when
-        val result = service.createVault(command)
-
-        // then
-        assertThat(result).usingRecursiveComparison().isEqualTo(existingVault)
+        // when / then
+        assertThatThrownBy { service.createVault(command) }
+            .isInstanceOf(VaultAlreadyExistsException::class.java)
         verify(exactly = 0) { fireblocksClient.createVault(any(), any()) }
     }
 

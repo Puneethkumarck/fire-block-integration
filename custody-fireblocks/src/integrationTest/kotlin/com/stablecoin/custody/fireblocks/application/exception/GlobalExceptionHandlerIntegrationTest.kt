@@ -1,18 +1,14 @@
 package com.stablecoin.custody.fireblocks.application.exception
 
-import com.stablecoin.custody.fireblocks.AbstractIntegrationTest
+import com.stablecoin.custody.fireblocks.AbstractMockMvcIntegrationTest
 import com.stablecoin.custody.fireblocks.domain.exception.VaultNotFoundException
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.hamcrest.Matchers.hasKey
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt
-import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -25,13 +21,8 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
-@AutoConfigureMockMvc
 @Import(ExceptionTestController::class)
-class GlobalExceptionHandlerIntegrationTest : AbstractIntegrationTest() {
-    @Autowired
-    private lateinit var mockMvc: MockMvc
-
+class GlobalExceptionHandlerIntegrationTest : AbstractMockMvcIntegrationTest() {
     private fun uniqueJwt() = jwt().jwt { it.subject(UUID.randomUUID().toString()) }
 
     @Test

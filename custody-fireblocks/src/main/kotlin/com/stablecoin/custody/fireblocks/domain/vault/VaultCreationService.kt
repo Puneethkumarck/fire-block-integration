@@ -5,6 +5,7 @@ import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import com.stablecoin.custody.fireblocks.domain.audit.AuditOperation
 import com.stablecoin.custody.fireblocks.domain.audit.AuditStatus
 import com.stablecoin.custody.fireblocks.domain.event.VaultCreatedEvent
+import com.stablecoin.custody.fireblocks.domain.exception.VaultAlreadyExistsException
 import com.stablecoin.custody.fireblocks.domain.port.EventPublisher
 import com.stablecoin.custody.fireblocks.domain.port.FireblocksVaultPort
 import com.stablecoin.custody.fireblocks.domain.shared.logger
@@ -25,8 +26,7 @@ class VaultCreationService(
         log.info("Creating vault: customerRefId={}", command.customerRefId)
 
         vaultRepository.findByCustomerRefId(command.customerRefId)?.let {
-            log.info("Vault already exists: customerRefId={}", command.customerRefId)
-            return it
+            throw VaultAlreadyExistsException(command.customerRefId)
         }
 
         val vault = Vault.create(command)
