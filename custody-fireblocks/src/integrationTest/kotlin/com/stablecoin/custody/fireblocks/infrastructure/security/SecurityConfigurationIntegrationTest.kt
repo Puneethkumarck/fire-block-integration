@@ -1,6 +1,8 @@
 package com.stablecoin.custody.fireblocks.infrastructure.security
 
 import com.stablecoin.custody.fireblocks.AbstractMockMvcIntegrationTest
+import com.stablecoin.custody.fireblocks.test.fixtures.aWebhookBody
+import com.stablecoin.custody.fireblocks.test.fixtures.signWebhookBody
 import org.junit.jupiter.api.Test
 import org.springframework.http.MediaType
 import org.springframework.security.core.authority.SimpleGrantedAuthority
@@ -11,8 +13,6 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.header
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
-import java.security.Signature
-import java.security.interfaces.RSAPrivateKey
 import java.time.Instant
 import java.util.Base64
 
@@ -130,8 +130,7 @@ class SecurityConfigurationIntegrationTest : AbstractMockMvcIntegrationTest() {
     @Test
     fun `should accept webhook with valid signature`() {
         // given
-        val body = """{"type":"TRANSACTION_STATUS_UPDATED","createdAt":${Instant.now().toEpochMilli()}}"""
-        val signature = signWithWebhookKey(body)
+        val body = aWebhookBody()
 
         // when
         // then
@@ -140,14 +139,14 @@ class SecurityConfigurationIntegrationTest : AbstractMockMvcIntegrationTest() {
                 post("/api/v1/webhooks/fireblocks")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(body)
-                    .header("Fireblocks-Signature", signature),
-            ).andExpect(status().isNotFound)
+                    .header("Fireblocks-Signature", signWebhookBody(body, webhookKeyPair)),
+            ).andExpect(status().isOk)
     }
 
     @Test
     fun `should reject webhook with invalid signature`() {
         // given
-        val body = """{"type":"TRANSACTION_STATUS_UPDATED","createdAt":${Instant.now().toEpochMilli()}}"""
+        val body = aWebhookBody()
         val invalidSignature = Base64.getEncoder().encodeToString("invalid".toByteArray())
 
         // when
@@ -165,8 +164,7 @@ class SecurityConfigurationIntegrationTest : AbstractMockMvcIntegrationTest() {
     fun `should reject webhook with replayed timestamp`() {
         // given
         val oldTimestamp = Instant.now().minusSeconds(301).toEpochMilli()
-        val body = """{"type":"TRANSACTION_STATUS_UPDATED","createdAt":$oldTimestamp}"""
-        val signature = signWithWebhookKey(body)
+        val body = aWebhookBody(timestamp = oldTimestamp)
 
         // when
         // then
@@ -175,7 +173,7 @@ class SecurityConfigurationIntegrationTest : AbstractMockMvcIntegrationTest() {
                 post("/api/v1/webhooks/fireblocks")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(body)
-                    .header("Fireblocks-Signature", signature),
+                    .header("Fireblocks-Signature", signWebhookBody(body, webhookKeyPair)),
             ).andExpect(status().isUnauthorized)
     }
 
@@ -204,8 +202,7 @@ class SecurityConfigurationIntegrationTest : AbstractMockMvcIntegrationTest() {
     fun `should not rate limit webhook requests`() {
         // given
         repeat(5) { i ->
-            val body = """{"type":"TRANSACTION_STATUS_UPDATED","createdAt":${Instant.now().minusMillis(i.toLong()).toEpochMilli()}}"""
-            val signature = signWithWebhookKey(body)
+            val body = aWebhookBody(timestamp = Instant.now().minusMillis(i.toLong()).toEpochMilli())
 
             // when
             // then
@@ -214,8 +211,8 @@ class SecurityConfigurationIntegrationTest : AbstractMockMvcIntegrationTest() {
                     post("/api/v1/webhooks/fireblocks")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body)
-                        .header("Fireblocks-Signature", signature),
-                ).andExpect(status().isNotFound)
+                        .header("Fireblocks-Signature", signWebhookBody(body, webhookKeyPair)),
+                ).andExpect(status().isOk)
         }
     }
 
@@ -235,12 +232,5 @@ class SecurityConfigurationIntegrationTest : AbstractMockMvcIntegrationTest() {
                     .header("Origin", "https://evil.com")
                     .with(jwt),
             ).andExpect(header().doesNotExist("Access-Control-Allow-Origin"))
-    }
-
-    private fun signWithWebhookKey(body: String): String {
-        val sig = Signature.getInstance("SHA512withRSA")
-        sig.initSign(webhookKeyPair.private as RSAPrivateKey)
-        sig.update(body.toByteArray())
-        return Base64.getEncoder().encodeToString(sig.sign())
     }
 }
