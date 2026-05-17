@@ -1,7 +1,7 @@
 package com.stablecoin.custody.fireblocks.application.controller
 
 import com.stablecoin.custody.fireblocks.api.response.BalanceResponse
-import com.stablecoin.custody.fireblocks.domain.port.BalanceResult
+import com.stablecoin.custody.fireblocks.application.mapper.toResponse
 import com.stablecoin.custody.fireblocks.domain.vault.VaultId
 import com.stablecoin.custody.fireblocks.domain.wallet.BalanceQueryService
 import org.springframework.http.ResponseEntity
@@ -29,13 +29,4 @@ class BalanceController(
         val balance = balanceQueryService.getBalance(VaultId(vaultId), currency, protocol, refresh)
         return ResponseEntity.ok(balance.toResponse())
     }
-
-    fun BalanceResult.toResponse() =
-        BalanceResponse(
-            total = total,
-            available = available,
-            pending = pending,
-            frozen = frozen,
-            locked = locked,
-        )
 }

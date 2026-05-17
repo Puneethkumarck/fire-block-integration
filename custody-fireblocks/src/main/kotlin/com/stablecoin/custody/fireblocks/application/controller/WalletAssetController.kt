@@ -3,11 +3,10 @@ package com.stablecoin.custody.fireblocks.application.controller
 import com.stablecoin.custody.fireblocks.api.request.ActivateAssetRequest
 import com.stablecoin.custody.fireblocks.api.response.DepositAddressResponse
 import com.stablecoin.custody.fireblocks.api.response.WalletAssetResponse
+import com.stablecoin.custody.fireblocks.application.mapper.toResponse
 import com.stablecoin.custody.fireblocks.domain.vault.VaultId
 import com.stablecoin.custody.fireblocks.domain.wallet.ActivateAssetCommand
-import com.stablecoin.custody.fireblocks.domain.wallet.DepositAddress
 import com.stablecoin.custody.fireblocks.domain.wallet.GenerateAddressCommand
-import com.stablecoin.custody.fireblocks.domain.wallet.WalletAsset
 import com.stablecoin.custody.fireblocks.domain.wallet.WalletAssetService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -46,26 +45,4 @@ class WalletAssetController(
         val address = walletAssetService.generateDepositAddress(command)
         return ResponseEntity.status(HttpStatus.CREATED).body(address.toResponse())
     }
-
-    fun WalletAsset.toResponse() =
-        WalletAssetResponse(
-            id = id.value,
-            vaultId = vaultId.value,
-            currency = currency,
-            protocol = protocol,
-            fireblocksAssetId = fireblocksAssetId,
-            status = status.name,
-            createdAt = createdAt,
-            updatedAt = updatedAt,
-        )
-
-    fun DepositAddress.toResponse() =
-        DepositAddressResponse(
-            id = id.value,
-            walletAssetId = walletAssetId.value,
-            address = address,
-            tag = tag,
-            legacyAddress = legacyAddress,
-            createdAt = createdAt,
-        )
 }

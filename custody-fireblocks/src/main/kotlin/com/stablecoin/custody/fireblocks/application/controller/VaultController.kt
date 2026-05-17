@@ -2,8 +2,8 @@ package com.stablecoin.custody.fireblocks.application.controller
 
 import com.stablecoin.custody.fireblocks.api.request.CreateVaultRequest
 import com.stablecoin.custody.fireblocks.api.response.VaultResponse
-import com.stablecoin.custody.fireblocks.domain.vault.CreateVaultCommand
-import com.stablecoin.custody.fireblocks.domain.vault.Vault
+import com.stablecoin.custody.fireblocks.application.mapper.toCommand
+import com.stablecoin.custody.fireblocks.application.mapper.toResponse
 import com.stablecoin.custody.fireblocks.domain.vault.VaultCreationService
 import com.stablecoin.custody.fireblocks.domain.vault.VaultId
 import com.stablecoin.custody.fireblocks.domain.vault.VaultQueryService
@@ -30,8 +30,7 @@ class VaultController(
     fun createVault(
         @RequestBody @Valid request: CreateVaultRequest,
     ): ResponseEntity<VaultResponse> {
-        val command = request.toCommand()
-        val vault = vaultCreationService.createVault(command)
+        val vault = vaultCreationService.createVault(request.toCommand())
         return ResponseEntity.status(HttpStatus.CREATED).body(vault.toResponse())
     }
 
@@ -42,21 +41,4 @@ class VaultController(
         val vault = vaultQueryService.getVault(VaultId(vaultId))
         return ResponseEntity.ok(vault.toResponse())
     }
-
-    fun CreateVaultRequest.toCommand() =
-        CreateVaultCommand(
-            customerRefId = customerRefId,
-            name = name,
-        )
-
-    fun Vault.toResponse() =
-        VaultResponse(
-            id = id.value,
-            fireblocksVaultId = fireblocksVaultId,
-            customerRefId = customerRefId,
-            name = name,
-            status = status.name,
-            createdAt = createdAt,
-            updatedAt = updatedAt,
-        )
 }
