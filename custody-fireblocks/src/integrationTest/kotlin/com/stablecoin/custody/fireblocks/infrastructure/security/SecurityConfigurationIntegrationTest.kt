@@ -1,14 +1,10 @@
 package com.stablecoin.custody.fireblocks.infrastructure.security
 
-import com.stablecoin.custody.fireblocks.AbstractIntegrationTest
+import com.stablecoin.custody.fireblocks.AbstractMockMvcIntegrationTest
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt
-import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -20,12 +16,7 @@ import java.security.interfaces.RSAPrivateKey
 import java.time.Instant
 import java.util.Base64
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
-@AutoConfigureMockMvc
-class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
-    @Autowired
-    private lateinit var mockMvc: MockMvc
-
+class SecurityConfigurationIntegrationTest : AbstractMockMvcIntegrationTest() {
     @Test
     fun `should reject unauthenticated GET to api endpoint`() {
         // when
@@ -46,7 +37,7 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
         // when
         // then
         mockMvc
-            .perform(get("/api/v1/vaults").with(jwt))
+            .perform(get("/api/v1/vaults/00000000-0000-0000-0000-000000000000").with(jwt))
             .andExpect(status().isNotFound)
     }
 
@@ -90,7 +81,7 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{}")
                     .with(jwt),
-            ).andExpect(status().isNotFound)
+            ).andExpect(status().isBadRequest)
     }
 
     @Test
@@ -118,11 +109,11 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
         // then
         mockMvc
             .perform(
-                put("/api/v1/vaults/123")
+                put("/api/v1/vaults/00000000-0000-0000-0000-000000000000")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{}")
                     .with(jwt),
-            ).andExpect(status().isNotFound)
+            ).andExpect(status().isMethodNotAllowed)
     }
 
     @Test
@@ -131,7 +122,7 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
         // then
         mockMvc
             .perform(
-                delete("/api/v1/vaults/123")
+                delete("/api/v1/vaults/00000000-0000-0000-0000-000000000000")
                     .with(jwt().authorities(SimpleGrantedAuthority("SCOPE_custody:read"))),
             ).andExpect(status().isForbidden)
     }
@@ -199,13 +190,13 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
         // when — exhaust the rate limit (capacity=3 in test profile)
         repeat(3) {
             mockMvc
-                .perform(get("/api/v1/vaults").with(jwt))
+                .perform(get("/api/v1/vaults/00000000-0000-0000-0000-000000000000").with(jwt))
                 .andExpect(status().isNotFound)
         }
 
         // then
         mockMvc
-            .perform(get("/api/v1/vaults").with(jwt))
+            .perform(get("/api/v1/vaults/00000000-0000-0000-0000-000000000000").with(jwt))
             .andExpect(status().isTooManyRequests)
     }
 
@@ -240,7 +231,7 @@ class SecurityConfigurationIntegrationTest : AbstractIntegrationTest() {
         // then
         mockMvc
             .perform(
-                get("/api/v1/vaults")
+                get("/api/v1/vaults/00000000-0000-0000-0000-000000000000")
                     .header("Origin", "https://evil.com")
                     .with(jwt),
             ).andExpect(header().doesNotExist("Access-Control-Allow-Origin"))
