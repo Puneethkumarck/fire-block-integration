@@ -16,20 +16,30 @@ class WebhookEventHandler(
     private val auditLogRepository: AuditLogRepository,
 ) {
     fun handle(payload: WebhookPayload) {
-        when (payload.type) {
-            "TRANSACTION_STATUS_UPDATED" -> handleTransactionStatusUpdated(payload)
-            else -> log.warn("Ignoring unknown webhook type: {}", payload.type)
+        var auditStatus = AuditStatus.SUCCESS
+        try {
+            when (payload.type) {
+                "TRANSACTION_STATUS_UPDATED" -> handleTransactionStatusUpdated(payload)
+                else -> log.warn("Ignoring unknown webhook type: {}", payload.type)
+            }
+        } catch (ex: Exception) {
+            auditStatus = AuditStatus.FAILURE
+            log.error("Webhook handling failed: type={}, fireblocksTxId={}", payload.type, payload.data?.id, ex)
+        } finally {
+            runCatching {
+                auditLogRepository.save(
+                    AuditLog.create(
+                        operation = AuditOperation.WEBHOOK_RECEIVED,
+                        actor = "fireblocks",
+                        resourceId = payload.data?.id ?: "unknown",
+                        status = auditStatus,
+                        details = mapOf("type" to payload.type),
+                    ),
+                )
+            }.onFailure { ex ->
+                log.error("Failed to persist webhook audit log: type={}", payload.type, ex)
+            }
         }
-
-        auditLogRepository.save(
-            AuditLog.create(
-                operation = AuditOperation.WEBHOOK_RECEIVED,
-                actor = "fireblocks",
-                resourceId = payload.data?.id ?: "unknown",
-                status = AuditStatus.SUCCESS,
-                details = mapOf("type" to payload.type),
-            ),
-        )
     }
 
     private fun handleTransactionStatusUpdated(payload: WebhookPayload) {
@@ -38,9 +48,19 @@ class WebhookEventHandler(
                 log.warn("Webhook missing data: type={}", payload.type)
                 return
             }
+        val id =
+            data.id ?: run {
+                log.warn("Webhook transaction data missing id")
+                return
+            }
+        val status =
+            data.status ?: run {
+                log.warn("Webhook transaction data missing status: id={}", id)
+                return
+            }
         transactionStatusHandler.handleStatusUpdate(
-            fireblocksTxId = data.id,
-            fireblocksStatus = data.status,
+            fireblocksTxId = id,
+            fireblocksStatus = status,
             subStatus = data.subStatus,
             txHash = data.txHash,
         )

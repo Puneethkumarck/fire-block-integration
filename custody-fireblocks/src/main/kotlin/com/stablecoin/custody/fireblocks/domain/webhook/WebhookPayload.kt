@@ -9,8 +9,8 @@ data class WebhookPayload(
 )
 
 data class WebhookTransactionData(
-    val id: String,
-    val status: String,
-    val subStatus: String?,
-    val txHash: String?,
+    val id: String? = null,
+    val status: String? = null,
+    val subStatus: String? = null,
+    val txHash: String? = null,
 )

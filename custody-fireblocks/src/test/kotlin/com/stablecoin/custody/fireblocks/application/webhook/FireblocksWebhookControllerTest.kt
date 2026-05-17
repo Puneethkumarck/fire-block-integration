@@ -55,4 +55,19 @@ class FireblocksWebhookControllerTest {
 
         verify { webhookEventHandler.handle(any()) }
     }
+
+    @Test
+    fun `should return 200 for unknown type with non-transaction data`() {
+        // when / then
+        mockMvc
+            .perform(
+                post("/api/v1/webhooks/fireblocks")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """{"type":"VAULT_CREATED","tenantId":"t1","timestamp":1700000000000,"createdAt":1700000000000,"data":{"foo":"bar"}}""",
+                    ),
+            ).andExpect(status().isOk)
+
+        verify { webhookEventHandler.handle(any()) }
+    }
 }

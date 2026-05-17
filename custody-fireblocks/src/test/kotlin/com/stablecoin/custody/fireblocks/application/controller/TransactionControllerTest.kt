@@ -366,7 +366,7 @@ class TransactionControllerTest {
                     .content(
                         """{"sourceVaultId":"$vaultId","destinationAddress":"0xabc","currency":"BTC","protocol":"BTC","amount":1.0}""",
                     ),
-            ).andExpect(status().is4xxClientError)
+            ).andExpect(status().isUnprocessableEntity)
     }
 
     @Test

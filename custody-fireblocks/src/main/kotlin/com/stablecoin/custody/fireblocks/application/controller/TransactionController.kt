@@ -67,12 +67,15 @@ class TransactionController(
     ): ResponseEntity<EstimateFeeResponse> {
         val vault = vaultQueryService.getVault(VaultId(UUID.fromString(request.sourceVaultId)))
         vault.assertActive()
+        val fireblocksVaultId =
+            vault.fireblocksVaultId
+                ?: throw IllegalStateException("Active vault ${vault.id.value} missing fireblocksVaultId")
         val supportedAsset =
             supportedAssetRepository.findByCurrencyAndProtocol(request.currency, request.protocol)
                 ?: throw AssetNotFoundException(request.sourceVaultId, "${request.currency}/${request.protocol}")
         val result =
             fireblocksTransactionPort.estimateFee(
-                request.toEstimateFeeCommand(vault.fireblocksVaultId!!, supportedAsset.fireblocksAssetId),
+                request.toEstimateFeeCommand(fireblocksVaultId, supportedAsset.fireblocksAssetId),
             )
         return ResponseEntity.ok(result.toResponse())
     }

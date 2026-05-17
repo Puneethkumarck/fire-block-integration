@@ -45,7 +45,7 @@ fun aSubmitTransactionRequest(
 )
 
 fun anEstimateFeeRequest(
-    sourceVaultId: String = "vault-001",
+    sourceVaultId: String = "00000000-0000-0000-0000-000000000001",
     destinationAddress: String = "0x1234567890abcdef1234567890abcdef12345678",
     currency: String = "EURC",
     protocol: String = "ETH",

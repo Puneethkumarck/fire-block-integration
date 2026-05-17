@@ -6,6 +6,7 @@ import com.stablecoin.custody.fireblocks.domain.transaction.TransactionStatus
 import com.stablecoin.custody.fireblocks.test.fixtures.aTransaction
 import com.stablecoin.custody.fireblocks.test.fixtures.aWebhookBody
 import com.stablecoin.custody.fireblocks.test.fixtures.signWebhookBody
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
@@ -77,7 +78,7 @@ class FireblocksWebhookControllerIntegrationTest : AbstractMockMvcIntegrationTes
         )
         val body = aWebhookBody(fireblocksTxId = "fb-e2e-001", status = "BROADCASTING")
 
-        // when / then
+        // when
         mockMvc
             .perform(
                 post("/api/v1/webhooks/fireblocks")
@@ -85,6 +86,11 @@ class FireblocksWebhookControllerIntegrationTest : AbstractMockMvcIntegrationTes
                     .header("Fireblocks-Signature", signWebhookBody(body, webhookKeyPair))
                     .content(body),
             ).andExpect(status().isOk)
+
+        // then
+        val updated = transactionRepository.findByFireblocksTransactionId("fb-e2e-001")
+        assertThat(updated).isNotNull
+        assertThat(updated!!.status).isEqualTo(TransactionStatus.PROCESSING)
     }
 
     @Test
@@ -119,7 +125,7 @@ class FireblocksWebhookControllerIntegrationTest : AbstractMockMvcIntegrationTes
                 txHash = """"0xterm"""",
             )
 
-        // when / then
+        // when
         mockMvc
             .perform(
                 post("/api/v1/webhooks/fireblocks")
@@ -127,5 +133,10 @@ class FireblocksWebhookControllerIntegrationTest : AbstractMockMvcIntegrationTes
                     .header("Fireblocks-Signature", signWebhookBody(body, webhookKeyPair))
                     .content(body),
             ).andExpect(status().isOk)
+
+        // then
+        val unchanged = transactionRepository.findByFireblocksTransactionId("fb-terminal-001")
+        assertThat(unchanged).isNotNull
+        assertThat(unchanged!!.status).isEqualTo(TransactionStatus.CONFIRMED)
     }
 }

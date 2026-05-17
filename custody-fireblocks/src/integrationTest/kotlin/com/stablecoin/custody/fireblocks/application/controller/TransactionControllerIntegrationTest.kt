@@ -118,7 +118,7 @@ class TransactionControllerIntegrationTest : AbstractMockMvcIntegrationTest() {
     }
 
     @Test
-    fun `should return 409 for duplicate externalTxId`() {
+    fun `should return 201 for duplicate externalTxId idempotently`() {
         // given
         val vault = vaultRepository.save(aVault(fireblocksVaultId = "fb-dup-001"))
         val externalTxId = "ext-dup-${UUID.randomUUID()}"
