@@ -97,6 +97,7 @@ dependencies {
     businessTestImplementation("org.testcontainers:kafka")
     businessTestImplementation("org.testcontainers:localstack")
     businessTestImplementation("org.springframework.boot:spring-boot-testcontainers")
+    businessTestImplementation("org.springframework.boot:spring-boot-webmvc-test")
     businessTestImplementation("org.springframework.security:spring-security-test")
     businessTestImplementation("org.wiremock:wiremock-standalone:3.13.2")
     businessTestImplementation(testFixtures(project))

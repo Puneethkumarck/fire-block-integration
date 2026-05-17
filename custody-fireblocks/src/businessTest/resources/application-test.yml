@@ -32,3 +32,20 @@ namastack:
       table-prefix: "custody_"
       schema-initialization:
         enabled: false
+
+fireblocks:
+  api:
+    base-url: http://localhost:${wiremock.server.port:8089}
+    connect-timeout: 5s
+    read-timeout: 5s
+  secrets:
+    private-key-name: fireblocks/private-key
+    api-key-name: fireblocks/api-key
+    webhook-public-key-name: fireblocks/webhook-public-key
+  health:
+    enabled: false
+
+custody:
+  polling:
+    interval: 999999999
+    vault-interval: 999999999
