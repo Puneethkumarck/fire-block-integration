@@ -4,12 +4,13 @@ import com.stablecoin.custody.fireblocks.AbstractMockMvcIntegrationTest
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionRepository
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionStatus
 import com.stablecoin.custody.fireblocks.test.fixtures.aTransaction
+import com.stablecoin.custody.fireblocks.test.fixtures.aWebhookBody
+import com.stablecoin.custody.fireblocks.test.fixtures.signWebhookBody
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
-import java.security.Signature
 import java.time.Instant
 import java.util.Base64
 
@@ -20,14 +21,14 @@ class FireblocksWebhookControllerIntegrationTest : AbstractMockMvcIntegrationTes
     @Test
     fun `should accept webhook with valid signature`() {
         // given
-        val body = webhookBody("fb-unknown", "COMPLETED", "null", """"0xhash"""")
+        val body = aWebhookBody(fireblocksTxId = "fb-unknown", status = "COMPLETED", txHash = """"0xhash"""")
 
         // when / then
         mockMvc
             .perform(
                 post("/api/v1/webhooks/fireblocks")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .header("Fireblocks-Signature", sign(body))
+                    .header("Fireblocks-Signature", signWebhookBody(body, webhookKeyPair))
                     .content(body),
             ).andExpect(status().isOk)
     }
@@ -35,7 +36,7 @@ class FireblocksWebhookControllerIntegrationTest : AbstractMockMvcIntegrationTes
     @Test
     fun `should reject webhook with invalid signature`() {
         // given
-        val body = webhookBody("fb-001", "COMPLETED")
+        val body = aWebhookBody(fireblocksTxId = "fb-001", status = "COMPLETED")
         val invalidSignature =
             Base64.getEncoder().encodeToString("invalid".toByteArray())
 
@@ -53,14 +54,14 @@ class FireblocksWebhookControllerIntegrationTest : AbstractMockMvcIntegrationTes
     fun `should reject webhook with replayed timestamp`() {
         // given
         val oldTimestamp = Instant.now().minusSeconds(301).toEpochMilli()
-        val body = webhookBody("fb-001", "COMPLETED", timestamp = oldTimestamp)
+        val body = aWebhookBody(fireblocksTxId = "fb-001", status = "COMPLETED", timestamp = oldTimestamp)
 
         // when / then
         mockMvc
             .perform(
                 post("/api/v1/webhooks/fireblocks")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .header("Fireblocks-Signature", sign(body))
+                    .header("Fireblocks-Signature", signWebhookBody(body, webhookKeyPair))
                     .content(body),
             ).andExpect(status().isUnauthorized)
     }
@@ -74,18 +75,14 @@ class FireblocksWebhookControllerIntegrationTest : AbstractMockMvcIntegrationTes
                 status = TransactionStatus.SUBMITTED,
             ),
         )
-        val body =
-            webhookBody(
-                "fb-e2e-001",
-                "BROADCASTING",
-            )
+        val body = aWebhookBody(fireblocksTxId = "fb-e2e-001", status = "BROADCASTING")
 
         // when / then
         mockMvc
             .perform(
                 post("/api/v1/webhooks/fireblocks")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .header("Fireblocks-Signature", sign(body))
+                    .header("Fireblocks-Signature", signWebhookBody(body, webhookKeyPair))
                     .content(body),
             ).andExpect(status().isOk)
     }
@@ -93,14 +90,14 @@ class FireblocksWebhookControllerIntegrationTest : AbstractMockMvcIntegrationTes
     @Test
     fun `should return 200 for unknown transaction`() {
         // given
-        val body = webhookBody("fb-nonexistent", "COMPLETED")
+        val body = aWebhookBody(fireblocksTxId = "fb-nonexistent", status = "COMPLETED")
 
         // when / then
         mockMvc
             .perform(
                 post("/api/v1/webhooks/fireblocks")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .header("Fireblocks-Signature", sign(body))
+                    .header("Fireblocks-Signature", signWebhookBody(body, webhookKeyPair))
                     .content(body),
             ).andExpect(status().isOk)
     }
@@ -115,11 +112,11 @@ class FireblocksWebhookControllerIntegrationTest : AbstractMockMvcIntegrationTes
             ),
         )
         val body =
-            webhookBody(
-                "fb-terminal-001",
-                "COMPLETED",
-                """"CONFIRMED"""",
-                """"0xterm"""",
+            aWebhookBody(
+                fireblocksTxId = "fb-terminal-001",
+                status = "COMPLETED",
+                subStatus = """"CONFIRMED"""",
+                txHash = """"0xterm"""",
             )
 
         // when / then
@@ -127,26 +124,8 @@ class FireblocksWebhookControllerIntegrationTest : AbstractMockMvcIntegrationTes
             .perform(
                 post("/api/v1/webhooks/fireblocks")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .header("Fireblocks-Signature", sign(body))
+                    .header("Fireblocks-Signature", signWebhookBody(body, webhookKeyPair))
                     .content(body),
             ).andExpect(status().isOk)
-    }
-
-    private fun webhookBody(
-        fireblocksTxId: String,
-        status: String,
-        subStatus: String = "null",
-        txHash: String = "null",
-        timestamp: Long = Instant.now().toEpochMilli(),
-    ): String =
-        """{"type":"TRANSACTION_STATUS_UPDATED","createdAt":$timestamp,""" +
-            """"data":{"id":"$fireblocksTxId","status":"$status",""" +
-            """"subStatus":$subStatus,"txHash":$txHash}}"""
-
-    private fun sign(body: String): String {
-        val sig = Signature.getInstance("SHA512withRSA")
-        sig.initSign(webhookKeyPair.private)
-        sig.update(body.toByteArray())
-        return Base64.getEncoder().encodeToString(sig.sign())
     }
 }
