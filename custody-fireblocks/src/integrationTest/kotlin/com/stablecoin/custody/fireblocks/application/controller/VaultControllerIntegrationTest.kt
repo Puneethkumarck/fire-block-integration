@@ -129,14 +129,14 @@ class VaultControllerIntegrationTest : AbstractMockMvcIntegrationTest() {
                     .content("""{"customerRefId":"$customerRefId","name":"Vault"}"""),
             ).andExpect(status().isCreated)
 
-        // when / then — second call with same customerRefId returns existing (201 by service design)
+        // when / then — second call with same customerRefId returns 409
         mockMvc
             .perform(
                 post("/api/v1/vaults")
                     .with(writeJwt())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"customerRefId":"$customerRefId","name":"Vault"}"""),
-            ).andExpect(status().isCreated)
-            .andExpect(jsonPath("$.customerRefId").value(customerRefId))
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.code").value("CUSTODY-1002"))
     }
 }

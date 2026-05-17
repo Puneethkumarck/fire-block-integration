@@ -1,6 +1,7 @@
 package com.stablecoin.custody.fireblocks.application.controller
 
 import com.stablecoin.custody.fireblocks.application.exception.GlobalExceptionHandler
+import com.stablecoin.custody.fireblocks.domain.exception.VaultAlreadyExistsException
 import com.stablecoin.custody.fireblocks.domain.exception.VaultNotFoundException
 import com.stablecoin.custody.fireblocks.domain.vault.CreateVaultCommand
 import com.stablecoin.custody.fireblocks.domain.vault.VaultCreationService
@@ -60,11 +61,10 @@ class VaultControllerTest {
     }
 
     @Test
-    fun `should return existing vault on duplicate customerRefId`() {
+    fun `should return 409 when vault already exists for customerRefId`() {
         // given
-        val vault = aVault()
         val command = CreateVaultCommand(customerRefId = "customer-ref-001", name = "Test Vault")
-        every { vaultCreationService.createVault(command) } returns vault
+        every { vaultCreationService.createVault(command) } throws VaultAlreadyExistsException("customer-ref-001")
 
         // when / then
         mockMvc
@@ -72,10 +72,8 @@ class VaultControllerTest {
                 post("/api/v1/vaults")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""{"customerRefId":"customer-ref-001","name":"Test Vault"}"""),
-            ).andExpect(status().isCreated)
-            .andExpect(jsonPath("$.id").value(vault.id.value.toString()))
-
-        verify(exactly = 1) { vaultCreationService.createVault(command) }
+            ).andExpect(status().isConflict)
+            .andExpect(jsonPath("$.code").value("CUSTODY-1002"))
     }
 
     @Test
