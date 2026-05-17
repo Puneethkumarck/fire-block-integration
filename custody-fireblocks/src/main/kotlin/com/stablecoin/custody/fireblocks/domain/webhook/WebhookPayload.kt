@@ -1,4 +1,4 @@
-package com.stablecoin.custody.fireblocks.application.webhook
+package com.stablecoin.custody.fireblocks.domain.webhook
 
 data class WebhookPayload(
     val type: String,

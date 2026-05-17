@@ -141,7 +141,7 @@ class SecurityConfigurationIntegrationTest : AbstractMockMvcIntegrationTest() {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(body)
                     .header("Fireblocks-Signature", signature),
-            ).andExpect(status().isNotFound)
+            ).andExpect(status().isOk)
     }
 
     @Test
@@ -215,7 +215,7 @@ class SecurityConfigurationIntegrationTest : AbstractMockMvcIntegrationTest() {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body)
                         .header("Fireblocks-Signature", signature),
-                ).andExpect(status().isNotFound)
+                ).andExpect(status().isOk)
         }
     }
 
