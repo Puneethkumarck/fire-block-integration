@@ -8,13 +8,16 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.core.ProducerFactory
 import org.springframework.kafka.support.serializer.JacksonJsonSerializer
+import tools.jackson.databind.json.JsonMapper
 
 @Configuration
 class KafkaProducerConfiguration {
     @Bean
-    fun producerFactory(kafkaProperties: KafkaProperties): ProducerFactory<String, Any> {
-        val serializer = JacksonJsonSerializer<Any>()
-        serializer.isAddTypeInfo = false
+    fun producerFactory(
+        kafkaProperties: KafkaProperties,
+        jsonMapper: JsonMapper,
+    ): ProducerFactory<String, Any> {
+        val serializer = JacksonJsonSerializer<Any>(jsonMapper).noTypeInfo()
         return DefaultKafkaProducerFactory(kafkaProperties.buildProducerProperties(), StringSerializer(), serializer)
     }
 

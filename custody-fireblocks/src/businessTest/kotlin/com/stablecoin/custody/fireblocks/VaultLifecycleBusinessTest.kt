@@ -1,10 +1,14 @@
 package com.stablecoin.custody.fireblocks
 
 import com.github.tomakehurst.wiremock.client.WireMock
+import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
+import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
+import com.jayway.jsonpath.JsonPath
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import com.stablecoin.custody.fireblocks.domain.event.AddressCreatedEvent
 import com.stablecoin.custody.fireblocks.domain.event.VaultCreatedEvent
 import com.stablecoin.custody.fireblocks.domain.event.WalletAssetCreatedEvent
+import com.stablecoin.custody.fireblocks.test.containers.SharedTestContainers
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.assertj.core.api.Assertions.assertThat
@@ -39,7 +43,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
     private fun assertKafkaTopicHasRecords(topic: String) {
         val props =
             mapOf(
-                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG to kafka.bootstrapServers,
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG to SharedTestContainers.kafka.bootstrapServers,
                 ConsumerConfig.GROUP_ID_CONFIG to "business-test-${UUID.randomUUID()}",
                 ConsumerConfig.AUTO_OFFSET_RESET_CONFIG to "earliest",
             )
@@ -61,7 +65,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
 
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts"))
+                .post(urlPathEqualTo("/v1/vault/accounts"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -84,9 +88,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andReturn()
 
-        val vaultId =
-            com.jayway.jsonpath.JsonPath
-                .read<String>(vaultResult.response.contentAsString, "$.id")
+        val vaultId = JsonPath.read<String>(vaultResult.response.contentAsString, "$.id")
 
         // then — verify vault audit log
         await().atMost(Duration.ofSeconds(5)).untilAsserted {
@@ -96,7 +98,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
         // given — activate asset
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/ETH"))
+                .post(urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/ETH"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -121,9 +123,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andReturn()
 
-        val walletAssetId =
-            com.jayway.jsonpath.JsonPath
-                .read<String>(assetResult.response.contentAsString, "$.id")
+        val walletAssetId = JsonPath.read<String>(assetResult.response.contentAsString, "$.id")
 
         // then — verify asset audit log
         await().atMost(Duration.ofSeconds(5)).untilAsserted {
@@ -133,7 +133,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
         // given — generate address
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/ETH/addresses"))
+                .post(urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/ETH/addresses"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -155,7 +155,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
         // given — query balance
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/ETH/balance"))
+                .post(urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/ETH/balance"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -187,7 +187,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
         val customerRefId = "dup-biz-${UUID.randomUUID()}"
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts"))
+                .post(urlPathEqualTo("/v1/vault/accounts"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -214,6 +214,9 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                     .content("""{"customerRefId":"$customerRefId","name":"Dup Vault"}"""),
             ).andExpect(status().isConflict)
             .andExpect(jsonPath("$.code").value("CUSTODY-1002"))
+
+        // then — verify Fireblocks was called only once
+        wireMock.verify(1, postRequestedFor(urlPathEqualTo("/v1/vault/accounts")))
     }
 
     @Test
@@ -224,7 +227,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
 
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts"))
+                .post(urlPathEqualTo("/v1/vault/accounts"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -244,9 +247,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                 ).andExpect(status().isCreated)
                 .andReturn()
 
-        val vaultId =
-            com.jayway.jsonpath.JsonPath
-                .read<String>(vaultResult.response.contentAsString, "$.id")
+        val vaultId = JsonPath.read<String>(vaultResult.response.contentAsString, "$.id")
 
         val assets =
             listOf(
@@ -260,7 +261,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
         for ((currency, protocol, fireblocksAssetId) in assets) {
             wireMock.stubFor(
                 WireMock
-                    .post(WireMock.urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/$fireblocksAssetId"))
+                    .post(urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/$fireblocksAssetId"))
                     .willReturn(
                         WireMock
                             .aResponse()
@@ -291,7 +292,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
 
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts"))
+                .post(urlPathEqualTo("/v1/vault/accounts"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -311,13 +312,11 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                 ).andExpect(status().isCreated)
                 .andReturn()
 
-        val vaultId =
-            com.jayway.jsonpath.JsonPath
-                .read<String>(vaultResult.response.contentAsString, "$.id")
+        val vaultId = JsonPath.read<String>(vaultResult.response.contentAsString, "$.id")
 
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/BTC"))
+                .post(urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/BTC"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -337,9 +336,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                 ).andExpect(status().isCreated)
                 .andReturn()
 
-        val firstAssetId =
-            com.jayway.jsonpath.JsonPath
-                .read<String>(firstResult.response.contentAsString, "$.id")
+        val firstAssetId = JsonPath.read<String>(firstResult.response.contentAsString, "$.id")
 
         // when
         val secondResult =
@@ -352,12 +349,11 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                 ).andExpect(status().isCreated)
                 .andReturn()
 
-        val secondAssetId =
-            com.jayway.jsonpath.JsonPath
-                .read<String>(secondResult.response.contentAsString, "$.id")
+        val secondAssetId = JsonPath.read<String>(secondResult.response.contentAsString, "$.id")
 
         // then
         assertThat(secondAssetId).isEqualTo(firstAssetId)
+        wireMock.verify(1, postRequestedFor(urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/BTC")))
     }
 
     @Test
@@ -368,7 +364,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
 
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts"))
+                .post(urlPathEqualTo("/v1/vault/accounts"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -388,13 +384,11 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                 ).andExpect(status().isCreated)
                 .andReturn()
 
-        val vaultId =
-            com.jayway.jsonpath.JsonPath
-                .read<String>(vaultResult.response.contentAsString, "$.id")
+        val vaultId = JsonPath.read<String>(vaultResult.response.contentAsString, "$.id")
 
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/SOL"))
+                .post(urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/SOL"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -414,7 +408,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
 
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/SOL/addresses"))
+                .post(urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/SOL/addresses"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -432,9 +426,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                 ).andExpect(status().isCreated)
                 .andReturn()
 
-        val firstAddress =
-            com.jayway.jsonpath.JsonPath
-                .read<String>(firstAddr.response.contentAsString, "$.address")
+        val firstAddress = JsonPath.read<String>(firstAddr.response.contentAsString, "$.address")
 
         // when
         val secondAddr =
@@ -445,12 +437,11 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                 ).andExpect(status().isCreated)
                 .andReturn()
 
-        val secondAddress =
-            com.jayway.jsonpath.JsonPath
-                .read<String>(secondAddr.response.contentAsString, "$.address")
+        val secondAddress = JsonPath.read<String>(secondAddr.response.contentAsString, "$.address")
 
         // then
         assertThat(secondAddress).isEqualTo(firstAddress)
+        wireMock.verify(1, postRequestedFor(urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/SOL/addresses")))
     }
 
     @Test
@@ -461,7 +452,7 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
 
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts"))
+                .post(urlPathEqualTo("/v1/vault/accounts"))
                 .willReturn(
                     WireMock
                         .aResponse()
@@ -481,13 +472,11 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                 ).andExpect(status().isCreated)
                 .andReturn()
 
-        val vaultId =
-            com.jayway.jsonpath.JsonPath
-                .read<String>(vaultResult.response.contentAsString, "$.id")
+        val vaultId = JsonPath.read<String>(vaultResult.response.contentAsString, "$.id")
 
         wireMock.stubFor(
             WireMock
-                .post(WireMock.urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/EURC/balance"))
+                .post(urlPathEqualTo("/v1/vault/accounts/$fireblocksVaultId/EURC/balance"))
                 .willReturn(
                     WireMock
                         .aResponse()
