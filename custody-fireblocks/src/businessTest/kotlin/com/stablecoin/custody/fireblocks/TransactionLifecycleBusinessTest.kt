@@ -194,43 +194,43 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
         val externalTxId = "ext-${UUID.randomUUID()}"
         val fireblocksTxId = "fb-lifecycle-001"
 
-        // when — submit transaction
+        // when
         submitTransaction(externalTxId, fireblocksTxId)
 
-        // then — verify transaction persisted as SUBMITTED
+        // then
         val submitted = transactionRepository.findByExternalTxId(externalTxId)
         assertThat(submitted).isNotNull
         assertThat(submitted!!.status).isEqualTo(TransactionStatus.SUBMITTED)
 
-        // then — verify audit log created
+        // then
         await().atMost(Duration.ofSeconds(5)).untilAsserted {
             assertThat(auditLogRepository.findByResourceId(submitted.id.value.toString())).isNotEmpty()
         }
 
-        // when — webhook: SUBMITTED -> PROCESSING (PENDING_SIGNATURE)
+        // when
         simulateWebhook(fireblocksTxId, "PENDING_SIGNATURE")
 
-        // then — status updated to PROCESSING
+        // then
         await().atMost(Duration.ofSeconds(5)).untilAsserted {
             val updated = transactionRepository.findByFireblocksTransactionId(fireblocksTxId)
             assertThat(updated).isNotNull
             assertThat(updated!!.status).isEqualTo(TransactionStatus.PROCESSING)
         }
 
-        // when — webhook: PROCESSING -> CONFIRMING
+        // when
         simulateWebhook(fireblocksTxId, "CONFIRMING")
 
-        // then — status updated to CONFIRMING
+        // then
         await().atMost(Duration.ofSeconds(5)).untilAsserted {
             val updated = transactionRepository.findByFireblocksTransactionId(fireblocksTxId)
             assertThat(updated).isNotNull
             assertThat(updated!!.status).isEqualTo(TransactionStatus.CONFIRMING)
         }
 
-        // when — webhook: CONFIRMING -> CONFIRMED (COMPLETED)
+        // when
         simulateWebhook(fireblocksTxId, "COMPLETED", txHash = "0x123abc456def")
 
-        // then — status updated to CONFIRMED (terminal)
+        // then
         await().atMost(Duration.ofSeconds(5)).untilAsserted {
             val updated = transactionRepository.findByFireblocksTransactionId(fireblocksTxId)
             assertThat(updated).isNotNull
@@ -238,7 +238,7 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
             assertThat(updated.txHash).isEqualTo("0x123abc456def")
         }
 
-        // then — query final state via API
+        // then
         mockMvc
             .perform(
                 MockMvcRequestBuilders
@@ -248,7 +248,7 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
             .andExpect(jsonPath("$.status").value("CONFIRMED"))
             .andExpect(jsonPath("$.txHash").value("0x123abc456def"))
 
-        // then — verify events published to Kafka
+        // then
         assertKafkaTopicContains(TransactionStatusChangedEvent.TOPIC, externalTxId)
     }
 
@@ -259,17 +259,17 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
         val fireblocksTxId = "fb-fail-001"
         submitTransaction(externalTxId, fireblocksTxId)
 
-        // when — webhook: FAILED
+        // when
         simulateWebhook(fireblocksTxId, "FAILED")
 
-        // then — status = FAILED (terminal)
+        // then
         await().atMost(Duration.ofSeconds(5)).untilAsserted {
             val updated = transactionRepository.findByFireblocksTransactionId(fireblocksTxId)
             assertThat(updated).isNotNull
             assertThat(updated!!.status).isEqualTo(TransactionStatus.FAILED)
         }
 
-        // then — verify event published
+        // then
         assertKafkaTopicContains(TransactionStatusChangedEvent.TOPIC, externalTxId)
     }
 
@@ -280,7 +280,7 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
         val fireblocksTxId = "fb-dup-001"
         submitTransaction(externalTxId, fireblocksTxId)
 
-        // when — submit same externalTxId again
+        // when
         mockMvc
             .perform(
                 MockMvcRequestBuilders
@@ -300,18 +300,18 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
             ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.externalTxId").value(externalTxId))
 
-        // then — Fireblocks API called only once
+        // then
         wireMock.verify(1, postRequestedFor(urlPathEqualTo("/v1/transactions")))
     }
 
     @Test
     fun `should catch stale transaction via polling fallback`() {
-        // given — submit transaction but don't send any webhook (simulating missed webhook)
+        // given
         val externalTxId = "ext-poll-${UUID.randomUUID()}"
         val fireblocksTxId = "fb-poll-001"
         submitTransaction(externalTxId, fireblocksTxId)
 
-        // given — stub Fireblocks GET to return PENDING_SIGNATURE (maps to PROCESSING)
+        // given
         wireMock.stubFor(
             get(urlPathEqualTo("/v1/transactions/$fireblocksTxId"))
                 .willReturn(
@@ -322,7 +322,7 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
                 ),
         )
 
-        // when — simulate what the polling job does: fetch status from Fireblocks and update
+        // when
         val result = fireblocksTransactionPort.getTransaction(fireblocksTxId)
         transactionStatusHandler.handleStatusUpdate(
             fireblocksTxId = fireblocksTxId,
@@ -331,7 +331,7 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
             txHash = result.txHash,
         )
 
-        // then — status advanced to PROCESSING via polling
+        // then
         val updated = transactionRepository.findByFireblocksTransactionId(fireblocksTxId)
         assertThat(updated).isNotNull
         assertThat(updated!!.status).isEqualTo(TransactionStatus.PROCESSING)
@@ -339,7 +339,7 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
 
     @Test
     fun `should recover stale CREATED transaction via polling`() {
-        // given — insert a transaction in CREATED state directly (simulating crash before Fireblocks call)
+        // given
         val staleTransaction =
             aTransaction(
                 status = TransactionStatus.CREATED,
@@ -349,7 +349,7 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
             )
         transactionRepository.save(staleTransaction)
 
-        // given — stub Fireblocks to return 404 for external ID lookup
+        // given
         wireMock.stubFor(
             get(urlPathEqualTo("/v1/transactions/external_tx_id/${staleTransaction.externalTxId}"))
                 .willReturn(
@@ -360,14 +360,14 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
                 ),
         )
 
-        // when — simulate what the recovery job does: look up on Fireblocks, mark FAILED if not found
+        // when
         val existing = fireblocksTransactionPort.getByExternalId(staleTransaction.externalTxId)
         if (existing == null) {
             val failed = staleTransaction.markFailed()
             transactionRepository.save(failed)
         }
 
-        // then — status updated to FAILED
+        // then
         val updated = transactionRepository.findByExternalTxId(staleTransaction.externalTxId)
         assertThat(updated).isNotNull
         assertThat(updated!!.status).isEqualTo(TransactionStatus.FAILED)
@@ -380,7 +380,7 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
         val fireblocksTxId = "fb-idem-001"
         submitTransaction(externalTxId, fireblocksTxId)
 
-        // when — first webhook: PENDING_SIGNATURE -> PROCESSING
+        // when
         simulateWebhook(fireblocksTxId, "PENDING_SIGNATURE")
 
         await().atMost(Duration.ofSeconds(5)).untilAsserted {
@@ -388,10 +388,10 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
             assertThat(updated!!.status).isEqualTo(TransactionStatus.PROCESSING)
         }
 
-        // when — same webhook again
+        // when
         simulateWebhook(fireblocksTxId, "PENDING_SIGNATURE")
 
-        // then — still PROCESSING, no error
+        // then
         val unchanged = transactionRepository.findByFireblocksTransactionId(fireblocksTxId)
         assertThat(unchanged).isNotNull
         assertThat(unchanged!!.status).isEqualTo(TransactionStatus.PROCESSING)
@@ -404,7 +404,7 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
         val fireblocksTxId = "fb-redelivery-001"
         submitTransaction(externalTxId, fireblocksTxId)
 
-        // when — advance to CONFIRMED
+        // when
         simulateWebhook(fireblocksTxId, "PENDING_SIGNATURE")
         await().atMost(Duration.ofSeconds(5)).untilAsserted {
             assertThat(transactionRepository.findByFireblocksTransactionId(fireblocksTxId)!!.status)
@@ -421,10 +421,10 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
                 .isEqualTo(TransactionStatus.CONFIRMED)
         }
 
-        // when — re-deliver COMPLETED webhook
+        // when
         simulateWebhook(fireblocksTxId, "COMPLETED", txHash = "0xterm123")
 
-        // then — no change, still CONFIRMED
+        // then
         val unchanged = transactionRepository.findByFireblocksTransactionId(fireblocksTxId)
         assertThat(unchanged).isNotNull
         assertThat(unchanged!!.status).isEqualTo(TransactionStatus.CONFIRMED)
@@ -432,12 +432,12 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
 
     @Test
     fun `should handle webhook for unknown transaction`() {
-        // given — no transaction exists for this fireblocks ID
+        // given
         val body =
             """{"type":"TRANSACTION_STATUS_UPDATED","createdAt":${Instant.now().toEpochMilli()},"data":{"id":"fb-unknown-999","status":"COMPLETED","subStatus":null,"txHash":null}}"""
         val signature = signWebhookBody(body, SharedTestContainers.webhookKeyPair)
 
-        // when / then — returns 200, no error
+        // when / then
         mockMvc
             .perform(
                 MockMvcRequestBuilders
