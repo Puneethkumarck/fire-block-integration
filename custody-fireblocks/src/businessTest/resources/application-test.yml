@@ -45,6 +45,23 @@ fireblocks:
   health:
     enabled: false
 
+resilience4j:
+  circuitbreaker:
+    instances:
+      fireblocks:
+        slidingWindowSize: 3
+        minimumNumberOfCalls: 3
+        waitDurationInOpenState: 2s
+        permittedNumberOfCallsInHalfOpenState: 1
+      fireblocks-balance:
+        slidingWindowSize: 3
+        minimumNumberOfCalls: 3
+        waitDurationInOpenState: 2s
+  retry:
+    instances:
+      fireblocks:
+        waitDuration: 100ms
+
 custody:
   polling:
     interval: 999999999

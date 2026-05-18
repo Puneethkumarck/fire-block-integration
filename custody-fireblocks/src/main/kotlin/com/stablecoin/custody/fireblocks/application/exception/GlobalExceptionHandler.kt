@@ -13,8 +13,11 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.client.RestClientException
 import org.springframework.web.context.request.WebRequest
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
+import java.io.IOException
+import java.net.SocketTimeoutException
 
 private val log = logger<GlobalExceptionHandler>()
 
@@ -84,6 +87,49 @@ class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
                 traceId = MDC.get("traceId"),
             ),
         )
+    }
+
+    @ExceptionHandler(RestClientException::class)
+    fun handleUpstreamError(
+        ex: RestClientException,
+        request: WebRequest,
+    ): ResponseEntity<Any> {
+        val rootCause = ex.rootCause ?: ex.cause
+        return when {
+            rootCause is SocketTimeoutException -> {
+                log.error("Upstream API timeout", ex)
+                ResponseEntity.status(504).body(
+                    ApiError(
+                        code = "CUSTODY-3002",
+                        status = "Gateway Timeout",
+                        message = "Upstream service timed out",
+                        traceId = MDC.get("traceId"),
+                    ),
+                )
+            }
+            rootCause is IOException -> {
+                log.error("Upstream API access error", ex)
+                ResponseEntity.status(502).body(
+                    ApiError(
+                        code = "CUSTODY-3001",
+                        status = "Bad Gateway",
+                        message = "Upstream service unavailable",
+                        traceId = MDC.get("traceId"),
+                    ),
+                )
+            }
+            else -> {
+                log.error("Upstream API error", ex)
+                ResponseEntity.status(502).body(
+                    ApiError(
+                        code = "CUSTODY-3001",
+                        status = "Bad Gateway",
+                        message = "Upstream service error",
+                        traceId = MDC.get("traceId"),
+                    ),
+                )
+            }
+        }
     }
 
     @ExceptionHandler(Exception::class)
