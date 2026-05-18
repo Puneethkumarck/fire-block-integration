@@ -40,7 +40,10 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
 
     private fun readJwt() = jwt().jwt { it.subject(UUID.randomUUID().toString()).claim("scope", "custody:read") }
 
-    private fun assertKafkaTopicHasRecords(topic: String) {
+    private fun assertKafkaTopicContains(
+        topic: String,
+        expectedFragment: String,
+    ) {
         val props =
             mapOf(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG to SharedTestContainers.kafka.bootstrapServers,
@@ -48,11 +51,12 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
                 ConsumerConfig.AUTO_OFFSET_RESET_CONFIG to "earliest",
             )
         val consumer = DefaultKafkaConsumerFactory(props, StringDeserializer(), StringDeserializer()).createConsumer()
+        val allValues = mutableListOf<String>()
         consumer.use {
             it.subscribe(listOf(topic))
             await().atMost(Duration.ofSeconds(10)).untilAsserted {
-                val records = it.poll(Duration.ofMillis(500))
-                assertThat(records.count()).isGreaterThan(0)
+                it.poll(Duration.ofMillis(500)).forEach { record -> allValues.add(record.value()) }
+                assertThat(allValues).anyMatch { value -> value.contains(expectedFragment) }
             }
         }
     }
@@ -176,9 +180,9 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
             .andExpect(jsonPath("$.pending").value(2.5))
 
         // then — verify events published to Kafka
-        assertKafkaTopicHasRecords(VaultCreatedEvent.TOPIC)
-        assertKafkaTopicHasRecords(WalletAssetCreatedEvent.TOPIC)
-        assertKafkaTopicHasRecords(AddressCreatedEvent.TOPIC)
+        assertKafkaTopicContains(VaultCreatedEvent.TOPIC, customerRefId)
+        assertKafkaTopicContains(WalletAssetCreatedEvent.TOPIC, vaultId)
+        assertKafkaTopicContains(AddressCreatedEvent.TOPIC, "0xbiz0001deadbeef")
     }
 
     @Test
