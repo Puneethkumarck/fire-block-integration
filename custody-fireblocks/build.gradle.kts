@@ -80,6 +80,12 @@ dependencies {
     testFixturesImplementation("org.springframework.boot:spring-boot-starter-test") {
         exclude(group = "org.mockito")
     }
+    testFixturesImplementation(platform("org.testcontainers:testcontainers-bom:1.21.4"))
+    testFixturesImplementation("org.testcontainers:postgresql")
+    testFixturesImplementation("org.testcontainers:kafka")
+    testFixturesImplementation("org.testcontainers:localstack")
+    testFixturesImplementation(platform("software.amazon.awssdk:bom:2.44.7"))
+    testFixturesImplementation("software.amazon.awssdk:secretsmanager")
 
     integrationTestImplementation("org.testcontainers:junit-jupiter")
     integrationTestImplementation("org.testcontainers:postgresql")
@@ -97,6 +103,7 @@ dependencies {
     businessTestImplementation("org.testcontainers:kafka")
     businessTestImplementation("org.testcontainers:localstack")
     businessTestImplementation("org.springframework.boot:spring-boot-testcontainers")
+    businessTestImplementation("org.springframework.boot:spring-boot-webmvc-test")
     businessTestImplementation("org.springframework.security:spring-security-test")
     businessTestImplementation("org.wiremock:wiremock-standalone:3.13.2")
     businessTestImplementation(testFixtures(project))
