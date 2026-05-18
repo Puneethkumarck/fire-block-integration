@@ -5,6 +5,8 @@ import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import com.stablecoin.custody.fireblocks.domain.event.AddressCreatedEvent
 import com.stablecoin.custody.fireblocks.domain.event.VaultCreatedEvent
 import com.stablecoin.custody.fireblocks.domain.event.WalletAssetCreatedEvent
+import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.common.serialization.StringDeserializer
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
@@ -12,7 +14,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
-import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -25,9 +27,6 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
     @Autowired
     private lateinit var auditLogRepository: AuditLogRepository
 
-    @Autowired
-    private lateinit var jdbcTemplate: JdbcTemplate
-
     @BeforeEach
     fun resetWireMock() {
         wireMock.resetAll()
@@ -37,14 +36,21 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
 
     private fun readJwt() = jwt().jwt { it.subject(UUID.randomUUID().toString()).claim("scope", "custody:read") }
 
-    private fun assertOutboxContainsEvent(eventType: String) {
-        val count =
-            jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM custody_outbox_record WHERE record_type = ?",
-                Long::class.java,
-                eventType,
+    private fun assertKafkaTopicHasRecords(topic: String) {
+        val props =
+            mapOf(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG to kafka.bootstrapServers,
+                ConsumerConfig.GROUP_ID_CONFIG to "business-test-${UUID.randomUUID()}",
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG to "earliest",
             )
-        assertThat(count).isGreaterThan(0)
+        val consumer = DefaultKafkaConsumerFactory(props, StringDeserializer(), StringDeserializer()).createConsumer()
+        consumer.use {
+            it.subscribe(listOf(topic))
+            await().atMost(Duration.ofSeconds(10)).untilAsserted {
+                val records = it.poll(Duration.ofMillis(500))
+                assertThat(records.count()).isGreaterThan(0)
+            }
+        }
     }
 
     @Test
@@ -169,12 +175,10 @@ class VaultLifecycleBusinessTest : AbstractBusinessTest() {
             .andExpect(jsonPath("$.available").value(8.0))
             .andExpect(jsonPath("$.pending").value(2.5))
 
-        // then — verify outbox events were scheduled
-        await().atMost(Duration.ofSeconds(5)).untilAsserted {
-            assertOutboxContainsEvent(VaultCreatedEvent::class.qualifiedName!!)
-            assertOutboxContainsEvent(WalletAssetCreatedEvent::class.qualifiedName!!)
-            assertOutboxContainsEvent(AddressCreatedEvent::class.qualifiedName!!)
-        }
+        // then — verify events published to Kafka
+        assertKafkaTopicHasRecords(VaultCreatedEvent.TOPIC)
+        assertKafkaTopicHasRecords(WalletAssetCreatedEvent.TOPIC)
+        assertKafkaTopicHasRecords(AddressCreatedEvent.TOPIC)
     }
 
     @Test
