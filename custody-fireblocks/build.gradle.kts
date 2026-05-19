@@ -87,7 +87,7 @@ dependencies {
     testFixturesImplementation("org.testcontainers:localstack")
     testFixturesImplementation(platform("software.amazon.awssdk:bom:2.44.7"))
     testFixturesImplementation("software.amazon.awssdk:secretsmanager")
-    testFixturesImplementation("io.temporal:temporal-testing:1.28.0")
+    testFixturesImplementation("io.temporal:temporal-testing:1.35.0")
 
     integrationTestImplementation("org.testcontainers:junit-jupiter")
     integrationTestImplementation("org.testcontainers:postgresql")
