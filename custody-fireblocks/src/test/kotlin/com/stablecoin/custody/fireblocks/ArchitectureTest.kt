@@ -88,6 +88,17 @@ class ArchitectureTest {
     }
 
     @Test
+    fun `domain must not depend on Temporal SDK`() {
+        noClasses()
+            .that()
+            .resideInAPackage("$basePackage.domain..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAPackage("io.temporal..")
+            .check(classes)
+    }
+
+    @Test
     fun `infrastructure must not depend on application controllers`() {
         noClasses()
             .that()
