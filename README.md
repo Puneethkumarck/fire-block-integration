@@ -88,6 +88,7 @@ A custody integration that survives Fireblocks outages, satisfies MiCA auditors,
 - [Why Does This Exist?](#-why-does-this-exist)
 - [Life of a Transaction](#-life-of-a-transaction)
 - [Architecture](#-architecture)
+- [Fireblocks: The Custody Platform](#-fireblocks-the-custody-platform)
 - [The State Machine: Why Transactions Don't Get Lost](#-the-state-machine-why-transactions-dont-get-lost)
 - [Dual-Track Status: Webhooks + Polling](#-dual-track-status-webhooks--polling)
 - [The Transactional Outbox: Why Events Never Get Lost](#-the-transactional-outbox-why-events-never-get-lost)
@@ -301,6 +302,152 @@ StableBridge Custody follows strict **hexagonal architecture (ports & adapters)*
 | Only `@Service` + `@Transactional` allowed in domain | Minimal DI wiring, nothing else |
 
 Break any rule and the build fails. No social contracts, only compile errors.
+
+---
+
+## Fireblocks: The Custody Platform
+
+Fireblocks is an institutional-grade crypto custody platform. Understanding its architecture explains *why* StableBridge Custody exists and the design decisions throughout this service.
+
+### MPC: Why No Single Point of Compromise
+
+Traditional crypto custody stores private keys in a single location — even in an HSM, compromising that HSM compromises all keys. Fireblocks uses **Multi-Party Computation (MPC)** to eliminate this single point of failure:
+
+```text
+ Traditional Key Storage                MPC Key Management (Fireblocks)
+ ─────────────────────                  ─────────────────────────────────
+
+ ┌─────────────────┐                   ┌──────────┐  ┌──────────┐  ┌──────────┐
+ │   HSM / Vault   │                   │ Shard A  │  │ Shard B  │  │ Shard C  │
+ │   Private Key   │                   │ (Party 1)│  │ (Party 2)│  │ (Party 3)│
+ │   0x4a8b...     │                   └─────┬────┘  └─────┬────┘  └─────┬────┘
+ └────────┬────────┘                         │             │             │
+          │                                  └─────────────┼─────────────┘
+   Compromise HSM                                          │
+   = Compromise ALL keys                        MPC Signing Ceremony
+                                                (collaborative computation)
+                                                          │
+                                                          v
+                                               Signed Transaction
+                                               (no party ever held
+                                                the complete key)
+```
+
+**Key properties:**
+- Private keys **never exist in complete form** — not in memory, not on disk, not during signing
+- Signing is a **collaborative computation** between distributed key shards
+- An attacker must compromise **multiple independent systems simultaneously**
+- Keys **cannot be exported** from the MPC environment in plain form
+
+This is why StableBridge delegates all signing to Fireblocks — the service submits transaction requests and receives signed results, never touching cryptographic key material.
+
+### Vault Accounts: The Mental Model
+
+Think of a Fireblocks vault account as a **safety deposit box** in a bank:
+
+```text
+ Vault Account #1201 (one per client)
+ ┌───────────────────────────────────────────────────┐
+ │                                                     │
+ │  ┌─────────────┐  ┌─────────────┐  ┌────────────┐ │
+ │  │ ETH         │  │ EURC (ERC20)│  │ SOL        │ │
+ │  │ addr: 0xa.. │  │ addr: 0xa.. │  │ addr: 5K.. │ │
+ │  │ total: 2.5  │  │ total: 5000 │  │ total: 100 │ │
+ │  │ avail: 2.0  │  │ avail: 4500 │  │ avail: 100 │ │
+ │  │ locked: 0.5 │  │ locked: 500 │  │ locked: 0  │ │
+ │  └─────────────┘  └─────────────┘  └────────────┘ │
+ │                                                     │
+ │  customerRefId: "client-a-ref" (UNIQUE)             │
+ │  autoFuel: true (Gas Station tops up ETH for ERC20) │
+ └───────────────────────────────────────────────────┘
+
+ Each asset activation generates a blockchain address via MPC key derivation.
+ ERC-20 tokens (like EURC) share the same address as the base chain (ETH).
+```
+
+**StableBridge maps this 1:1:** each client gets a unique Fireblocks vault via `customerRefId` (UNIQUE constraint in the database). The vault contains activated wallet assets, each with its own on-chain address. No omnibus wallets, no commingling — this is how MiCA Art. 75(7) per-client segregation is enforced at the infrastructure level.
+
+### Balance Breakdown: Five Numbers, Not One
+
+Fireblocks reports balances as a multi-dimensional breakdown, not a single number. StableBridge queries all five fields:
+
+| Field | Meaning | Example |
+|---|---|---|
+| `total` | Overall wallet balance | 5.0 ETH |
+| `available` | Funds free for transfer (total minus locked/frozen) | 3.5 ETH |
+| `pending` | Unconfirmed incoming transactions | 0.3 ETH |
+| `frozen` | Administratively frozen funds | 0.0 ETH |
+| `locked` | Funds in unpublished outgoing transactions | 1.2 ETH |
+
+The `FireblocksBalanceResponse` DTO in this codebase maps all five fields. The Balance API returns `total` by default, with a `refresh=true` parameter that triggers a fresh query from Fireblocks (not just a cached read).
+
+### Transaction Authorization Policy (TAP)
+
+Fireblocks TAP is a **second line of defense** — a configurable rule engine that evaluates every transaction independently *before* allowing MPC signing:
+
+```text
+ StableBridge submits transaction
+       │
+       ▼
+ ┌─────────────────────────────────┐
+ │  Fireblocks TAP Engine          │
+ │                                  │
+ │  Rule 1: Amount < $50K? ─── OK  │
+ │  Rule 2: Whitelisted addr? ─ OK │
+ │  Rule 3: Time-of-day? ───── OK  │
+ │  Rule 4: 2-of-3 approvals? ─┐   │
+ │                              │   │
+ │        ┌─────────────────────┘   │
+ │        │ PENDING_AUTHORIZATION   │
+ │        │ (human approval needed) │
+ │        └─────────────────────┐   │
+ │                              │   │
+ │  All rules pass ─────────────┘   │
+ └──────────────────────────────────┘
+       │
+       ▼
+ MPC Signing Ceremony
+ (only if TAP approves)
+```
+
+**Why `PENDING_AUTHORIZATION` exists in the status mapping:** When TAP requires human approval, the transaction enters `PENDING_AUTHORIZATION`. StableBridge maps this to `PROCESSING` — the transaction is in-flight, awaiting approval within Fireblocks. This is also why the state machine must tolerate long-lived `PROCESSING` states (a TAP approval queue might take minutes or hours depending on policy configuration).
+
+### The 6-Phase Transaction Lifecycle
+
+A Fireblocks transaction passes through six distinct phases, each with its own failure modes. This is why Fireblocks has 16+ primary statuses:
+
+```text
+ Phase 1          Phase 2            Phase 3         Phase 4          Phase 5         Phase 6
+ Submission       Authorization      Signing         Broadcasting     Confirmation    Completion
+ ──────────       ─────────────      ───────         ────────────     ────────────    ──────────
+ SUBMITTED   ──► PENDING_AUTH   ──► PENDING_SIG ──► BROADCASTING ──► CONFIRMING  ──► COMPLETED
+ QUEUED           (TAP rules)        (MPC ceremony)  (mempool)        (block depth)   (final)
+                                                                                       │
+ Each phase can fail independently:                                                    │
+ ├── REJECTED (authorization denied)                                                   │
+ ├── FAILED (signing/broadcast failure)                                                │
+ ├── CANCELLED (user/policy cancellation)                                              │
+ ├── BLOCKED (policy-blocked)                                                          │
+ ├── TIMEOUT (phase exceeded time limit)                                               │
+ └── PARTIALLY_COMPLETED (multi-output partial success)                                │
+                                                                                       ▼
+ StableBridge compresses all 16+ statuses into 6 domain states:               CONFIRMED (terminal)
+ CREATED ──► SUBMITTED ──► PROCESSING ──► CONFIRMING ──► CONFIRMED / FAILED
+```
+
+**Sub-statuses** provide additional detail within each primary status (e.g., `INSUFFICIENT_FUNDS`, `INVALID_ADDRESS`, `BLOCKED_BY_POLICY`, `PENDING_BLOCKCHAIN_CONFIRMATIONS`). StableBridge captures the `subStatus` field in transaction results for diagnostic purposes.
+
+### Fee Estimation: Three Levels
+
+Transaction fees vary by blockchain and network congestion. Fireblocks provides three fee levels, and StableBridge exposes all three via the fee estimation endpoint:
+
+| Level | Speed | Cost | When to Use |
+|---|---|---|---|
+| **LOW** | Slow confirmation | Cheapest | Batch operations, non-urgent transfers |
+| **MEDIUM** | Standard confirmation | Moderate | Normal operations |
+| **HIGH** | Fast confirmation | Most expensive | Time-sensitive withdrawals |
+
+For EVM chains, each level includes `gasPrice`. For UTXO chains (Bitcoin), each level includes `feePerByte`. For fixed-fee chains (XRP, XLM), all levels return the same `networkFee`.
 
 ---
 
@@ -523,6 +670,28 @@ StableBridge sits between two trust boundaries, each with its own authentication
 | `custody:read` | GET endpoints — vault lookup, transaction status, balance query |
 | `custody:write` | POST/PUT/PATCH/DELETE — vault creation, transaction submission, fee estimation |
 
+**Per-request JWT signing — step by step** (`FireblocksJwtInterceptor`):
+
+Every outbound Fireblocks API call is authenticated with a fresh, short-lived JWT. The `FireblocksJwtInterceptor` (a Spring `ClientHttpRequestInterceptor`) builds it on every request:
+
+```text
+ Step 1: Extract path                  /v1/vault/accounts?namePrefix=client-a
+ Step 2: Compute body hash             SHA-256(requestBody) → "a3b8c9..."
+ Step 3: Build JWT payload             {
+                                          sub: "<api-key>",
+                                          iat: 1716062400,
+                                          exp: 1716062430,     ← iat + 30 seconds
+                                          nonce: "550e8400-...", ← UUID (one-time use)
+                                          uri: "/v1/vault/accounts?namePrefix=client-a",
+                                          bodyHash: "a3b8c9..."
+                                        }
+ Step 4: Sign with RS256               RSAPrivateKey (PKCS#8 DER, loaded from Secrets Manager)
+ Step 5: Attach to request             Authorization: Bearer <signed-jwt>
+                                        X-API-Key: <api-key>
+```
+
+**Why per-request?** Each JWT is bound to a specific URI and body hash. A JWT signed for `POST /v1/transactions` with body `{amount: 1000}` cannot be replayed against a different endpoint or with a different body. The 30-second expiry and UUID nonce provide additional replay protection.
+
 **Secrets management:** All cryptographic material lives in AWS Secrets Manager (LocalStack for dev). Nothing in config files, nothing in environment variables.
 
 | Secret | Type | Usage |
@@ -678,7 +847,7 @@ MiCA requires description of ICT security systems in the custody policy. Webhook
 
 | Avoided | Replacement | Why |
 |---|---|---|
-| **Fireblocks Java SDK** | Thin `@HttpExchange` client | SDK drags in transitive deps, poorly typed. 2 interfaces + JWT interceptor is all we need. |
+| **Fireblocks Java SDK** | Thin `@HttpExchange` client | SDK is auto-generated from OpenAPI (OkHttp + Gson), drags in transitive deps. Fireblocks exposes 60+ endpoints — we use 9. 2 `@HttpExchange` interfaces + 1 JWT interceptor + typed Kotlin DTOs is all we need. |
 | **Mockito** | MockK | Kotlin-native. `every { }` / `verify { }` instead of fighting `when()` with backticks. |
 | **MapStruct** | Kotlin extension functions | `toEntity()`, `toDomain()`, `toResponse()` — 3-line functions, no annotation processor. |
 | **Lombok** | Kotlin data classes | `data class` gives `equals`, `hashCode`, `copy`, `toString` for free. |
@@ -994,6 +1163,8 @@ Four-tier pyramid with strict conventions, enforced by ArchUnit and Jacoco gates
 | 10 | **No Fireblocks SDK** | SDK drags in transitive dependencies, poorly typed, opinionated | 2 `@HttpExchange` interfaces + JWT interceptor. Full control, minimal surface. |
 | 11 | **Kotlin extension functions for mapping** | MapStruct annotation processor adds build complexity | `toEntity()`, `toDomain()` — 3-line functions, no codegen |
 | 12 | **`customerRefId` / `externalTxId` uniqueness** | Duplicate API calls must be safe | DB constraint catches duplicates. Returns existing resource with 409. |
+| 13 | **Conservative status mapping** | Fireblocks has 16+ statuses with 50+ sub-statuses | Only known statuses are mapped to domain states. Unknown statuses throw `IllegalArgumentException`. Prevents new Fireblocks statuses from causing unexpected transitions. |
+| 14 | **MPC signing delegation** | Platform must never hold or derive blockchain private keys | All signing happens inside Fireblocks MPC. Service holds only an RSA key for API auth, never touches asset keys. |
 
 ---
 
