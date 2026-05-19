@@ -82,7 +82,7 @@ class TransactionLifecycleActivitiesIntegrationTest : AbstractIntegrationTest() 
         // then
         val auditLogs = auditLogRepository.findByResourceId(result.transactionId)
         assertThat(auditLogs).isNotEmpty
-        assertThat(auditLogs[0].operation).isEqualTo(AuditOperation.TRANSACTION_SUBMITTED)
+        assertThat(auditLogs[0].operation).isEqualTo(AuditOperation.TRANSACTION_CREATED)
         assertThat(auditLogs[0].actor).isEqualTo("temporal-activity")
     }
 

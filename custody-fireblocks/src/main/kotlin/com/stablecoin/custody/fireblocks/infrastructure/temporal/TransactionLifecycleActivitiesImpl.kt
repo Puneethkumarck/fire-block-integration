@@ -65,7 +65,7 @@ class TransactionLifecycleActivitiesImpl(
 
         auditLogRepository.save(
             AuditLog.create(
-                operation = AuditOperation.TRANSACTION_SUBMITTED,
+                operation = AuditOperation.TRANSACTION_CREATED,
                 actor = "temporal-activity",
                 resourceId = saved.id.value.toString(),
                 status = AuditStatus.SUCCESS,

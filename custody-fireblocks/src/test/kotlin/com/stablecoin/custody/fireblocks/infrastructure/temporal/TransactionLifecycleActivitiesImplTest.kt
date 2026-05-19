@@ -77,6 +77,8 @@ class TransactionLifecycleActivitiesImplTest {
         // then
         assertThat(result.transactionId).isEqualTo(existing.id.value.toString())
         verify(exactly = 0) { transactionRepository.save(any()) }
+        verify(exactly = 0) { eventPublisher.publish(any()) }
+        verify(exactly = 0) { auditLogRepository.save(any()) }
     }
 
     @Test
