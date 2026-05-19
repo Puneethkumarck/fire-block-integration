@@ -37,5 +37,6 @@ out/
 zitadel/data/
 
 # Planning documents (not shipped with code)
-docs/
+docs/*
+!docs/platform_architecture.png
 issues/
