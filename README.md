@@ -93,6 +93,7 @@ A custody integration that survives Fireblocks outages, satisfies MiCA auditors,
 - [The Transactional Outbox: Why Events Never Get Lost](#-the-transactional-outbox-why-events-never-get-lost)
 - [Resilience: What Happens When Fireblocks Has a Bad Day](#-resilience-what-happens-when-fireblocks-has-a-bad-day)
 - [Security: Two Borders, Two Authentication Models](#-security-two-borders-two-authentication-models)
+- [MiCA Compliance: How This Service Satisfies EU Regulation](#-mica-compliance-how-this-service-satisfies-eu-regulation)
 - [Tech Stack](#-tech-stack)
 - [Module Structure](#-module-structure)
 - [Quick Start](#-quick-start)
@@ -529,6 +530,126 @@ StableBridge sits between two trust boundaries, each with its own authentication
 | Fireblocks RSA private key | PKCS#8 DER, Base64 | Signs per-request JWTs for Fireblocks API |
 | Fireblocks API key | String | `X-API-Key` header on every Fireblocks call |
 | Fireblocks webhook public key | X.509 | Verifies webhook signatures from Fireblocks |
+
+---
+
+## MiCA Compliance: How This Service Satisfies EU Regulation
+
+[MiCA (Regulation (EU) 2023/1114)](https://eur-lex.europa.eu/eli/reg/2023/1114/oj/eng) is the EU's Markets in Crypto-Assets regulation. For crypto-asset service providers (CASPs) offering custody, it mandates strict requirements around client asset segregation, audit trails, operational resilience, and key management. This service is designed for a euro stablecoin platform regulated by the Dutch Central Bank (De Nederlandsche Bank).
+
+Here's how each regulatory requirement maps to a concrete implementation in this codebase:
+
+### Per-Client Asset Segregation — Art. 75(7)
+
+MiCA requires that client crypto-assets are held on **separate DLT addresses** from the CASP's own assets, with legal and operational segregation.
+
+```text
+ Client A                    Client B                    CASP Operating
+ ────────                    ────────                    ──────────────
+
+ Vault: "client-a-ref"       Vault: "client-b-ref"       (separate, never
+   └─ WalletAsset: ETH         └─ WalletAsset: ETH        commingled)
+       └─ Address: 0xabc...        └─ Address: 0xdef...
+   └─ WalletAsset: EURC        └─ WalletAsset: SOL
+       └─ Address: 0xabc...        └─ Address: 5Kx7...
+       (ERC-20 shares ETH addr)
+```
+
+**Implementation:** Each client maps to a unique Fireblocks vault via `customerRefId` (UNIQUE database constraint). One vault = one MPC key set = separate on-chain addresses. No omnibus wallets, no commingling.
+
+### Immutable Audit Trail — Art. 68(9), Art. 75(3)
+
+MiCA requires records of **all crypto-asset services, orders, and transactions** in a format that allows regulators to reconstruct each step. Records must be retained for a **minimum of 5 years**.
+
+```text
+ audit_logs (INSERT-ONLY)
+ ────────────────────────
+ id          operation                    resource_id     actor    status    details (JSONB)
+ ─────────── ──────────────────────────── ─────────────── ──────── ──────── ──────────────────
+ a1b2c3...   VAULT_CREATED                vault-001       system   SUCCESS  {fireblocksVaultId: "fb-1"}
+ d4e5f6...   ASSET_ACTIVATED              asset-001       system   SUCCESS  {currency: "ETH"}
+ g7h8i9...   ADDRESS_GENERATED            addr-001        system   SUCCESS  {address: "0xabc..."}
+ j0k1l2...   TRANSACTION_SUBMITTED        tx-001          system   SUCCESS  {fireblocksTransactionId: "fb-tx-1"}
+ m3n4o5...   TRANSACTION_STATUS_UPDATED   tx-001          system   SUCCESS  {from: "SUBMITTED", to: "CONFIRMED"}
+ p6q7r8...   WEBHOOK_RECEIVED             tx-001          system   SUCCESS  {fireblocksStatus: "COMPLETED"}
+
+ PostgreSQL trigger: BEFORE UPDATE OR DELETE → RAISE EXCEPTION
+ 'audit_logs table is immutable: UPDATE not allowed'
+```
+
+**Implementation:** 11 audit operation types cover every custody action. A PostgreSQL trigger on `audit_logs` physically prevents UPDATE and DELETE — not even a DBA can tamper with the trail. No DELETE operations exist anywhere in the codebase. All entities are insert-only or insert+update.
+
+| Audit Operation | What It Records |
+|---|---|
+| `VAULT_CREATED` | New vault account provisioned in Fireblocks |
+| `VAULT_CREATION_FAILED` | Fireblocks vault creation failed |
+| `ASSET_ACTIVATED` | Crypto asset activated in a vault |
+| `ADDRESS_GENERATED` | Deposit address generated on-chain |
+| `TRANSACTION_SUBMITTED` | Transaction sent to Fireblocks for MPC signing |
+| `TRANSACTION_SUBMISSION_FAILED` | Fireblocks rejected the transaction |
+| `TRANSACTION_STATUS_UPDATED` | Status change (via webhook or polling) |
+| `WEBHOOK_RECEIVED` | Inbound Fireblocks webhook processed |
+| `WEBHOOK_VERIFICATION_FAILED` | Invalid/spoofed webhook rejected |
+| `BALANCE_QUERIED` | Balance lookup from Fireblocks |
+| `FEE_ESTIMATED` | Fee estimation requested |
+
+### Full Transaction Traceability — Art. 75(3)
+
+MiCA requires a register recording **every movement and operation without undue delay**, including types, balances, values, and transfer history.
+
+**Implementation:** Every transaction state change produces two durable records atomically (same `@Transactional`):
+
+1. **Audit log entry** — immutable, who/what/when/result
+2. **Domain event via transactional outbox** — published to Kafka for downstream consumers
+
+The state machine (CREATED -> SUBMITTED -> PROCESSING -> CONFIRMING -> CONFIRMED / FAILED) ensures no transition is silent. Every status maps from Fireblocks' 15+ internal statuses to 6 domain states, and every mapping is logged.
+
+### Idempotency Guarantees — Art. 75(3), Art. 75(5)
+
+MiCA prohibits using client assets for the CASP's own purposes and requires accurate position registers. Duplicate operations would corrupt both.
+
+**Implementation:** Database-enforced uniqueness:
+- `vaults.customer_ref_id` — UNIQUE constraint. Duplicate vault creation returns existing vault (409).
+- `transactions.external_tx_id` — UNIQUE constraint. Duplicate transaction submission returns existing transaction (409).
+
+No custody operation can accidentally execute twice.
+
+### Operational Resilience — DORA Art. 5-12
+
+MiCA cross-references [DORA (Regulation (EU) 2022/2554)](https://www.digital-operational-resilience-act.com/DORA_Articles.html), requiring CASPs to maintain resilient ICT systems with tested recovery procedures.
+
+**Implementation:**
+
+| DORA Requirement | How It's Met |
+|---|---|
+| **ICT risk management** (Art. 5-7) | Resilience4j stack: Bulkhead (25 concurrent) -> Circuit Breaker (50% threshold) -> Retry (3x exponential) |
+| **Detection of anomalous activities** (Art. 9-10) | Health probes (`/actuator/health/liveness`, `/actuator/health/readiness`, custom Fireblocks probe), Prometheus metrics, circuit breaker state monitoring |
+| **Response and recovery** (Art. 11) | Dual-track reconciliation: webhooks (primary, ~1-5s) + ShedLock polling (fallback, every 2 min). Stale CREATED transactions auto-recovered. Pending vaults auto-recovered. |
+| **Continuity during provider outage** (Art. 6) | Circuit breaker opens after failures -> rejects fast (no cascade) -> half-open probes -> auto-recovers when Fireblocks returns. Polling job catches up missed state changes. |
+| **Third-party ICT risk** (Art. 25-26) | Separate `fireblocks-balance` circuit breaker isolates balance query failures from transaction operations. Fireblocks API monitored via Micrometer metrics. |
+
+### Cryptographic Key Management — ESMA Guidelines
+
+ESMA's guidelines on maintenance of systems and security access protocols require audited key management with access controls.
+
+**Implementation:** This service **never touches raw private keys**. MPC signing is delegated entirely to Fireblocks:
+
+| Secret | Storage | Access Pattern |
+|---|---|---|
+| Fireblocks RSA private key (API auth) | AWS Secrets Manager | Loaded once at startup -> `RSAPrivateKey` bean. Signs per-request JWTs (30s expiry, SHA-256 body hash, UUID nonce). |
+| Fireblocks API key | AWS Secrets Manager | Loaded once at startup -> `String` bean. Sent as `X-API-Key` header. |
+| Fireblocks webhook public key | AWS Secrets Manager | Loaded once at startup -> `RSAPublicKey` bean. Verifies RSA-SHA512 webhook signatures. |
+
+No key material in config files, environment variables, or log output (verified by business test: `should not expose internal details in error responses`).
+
+### Webhook Security & Replay Protection — Art. 75(2)
+
+MiCA requires description of ICT security systems in the custody policy. Webhook integrity is critical — a spoofed webhook could corrupt the transaction register.
+
+**Implementation:**
+- **RSA-SHA512 signature verification** — every webhook's `Fireblocks-Signature` header is verified against the Fireblocks public key
+- **5-minute replay window** — webhooks with `createdAt` older than 5 minutes are rejected, preventing replay attacks
+- **Idempotent processing** — re-delivered webhooks for already-terminal transactions return 200 without state corruption
 
 ---
 
