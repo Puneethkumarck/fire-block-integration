@@ -18,7 +18,12 @@ class TemporalWorkflowSignalAdapterTest {
     fun `should signal workflow with correct workflow ID`() {
         // given
         val externalTxId = "ext-tx-001"
-        val signal = aTransactionStatusSignal(fireblocksStatus = "COMPLETED", txHash = "0xhash")
+        val signal =
+            aTransactionStatusSignal(
+                fireblocksTransactionId = "fb-tx-999",
+                fireblocksStatus = "COMPLETED",
+                txHash = "0xhash",
+            )
         val workflowStub = mockk<TransactionLifecycleWorkflow>()
         val signalSlot = slot<TemporalTransactionStatusSignal>()
 
@@ -40,7 +45,13 @@ class TemporalWorkflowSignalAdapterTest {
                 "TransactionLifecycle_ext-tx-001",
             )
         }
-        assertThat(signalSlot.captured.fireblocksStatus).isEqualTo("COMPLETED")
-        assertThat(signalSlot.captured.txHash).isEqualTo("0xhash")
+        val expectedSignal =
+            TemporalTransactionStatusSignal(
+                fireblocksTransactionId = "fb-tx-999",
+                fireblocksStatus = "COMPLETED",
+                subStatus = null,
+                txHash = "0xhash",
+            )
+        assertThat(signalSlot.captured).usingRecursiveComparison().isEqualTo(expectedSignal)
     }
 }

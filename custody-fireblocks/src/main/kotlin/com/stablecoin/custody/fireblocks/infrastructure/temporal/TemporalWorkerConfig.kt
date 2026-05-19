@@ -20,5 +20,5 @@ class TemporalWorkerConfig(
     }
 
     @Bean(initMethod = "start", destroyMethod = "shutdown")
-    fun workerFactoryStarter(): WorkerFactory = factory
+    fun workerFactoryStarter(transactionLifecycleWorker: Worker): WorkerFactory = factory
 }

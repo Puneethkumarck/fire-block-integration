@@ -85,6 +85,7 @@ class TransactionLifecycleActivitiesImpl(
         log.info("Recording submission: transactionId={}, fireblocksTransactionId={}", transactionId, fireblocksTransactionId)
 
         val transaction = loadTransaction(transactionId)
+        val previousStatus = transaction.status
         val submitted = transaction.markSubmitted(fireblocksTransactionId)
         val saved = transactionRepository.save(submitted)
 
@@ -92,7 +93,7 @@ class TransactionLifecycleActivitiesImpl(
             TransactionStatusChangedEvent(
                 transactionId = saved.id.value,
                 externalTxId = saved.externalTxId,
-                previousStatus = TransactionStatus.CREATED.name,
+                previousStatus = previousStatus.name,
                 newStatus = TransactionStatus.SUBMITTED.name,
                 fireblocksStatus = null,
                 subStatus = null,

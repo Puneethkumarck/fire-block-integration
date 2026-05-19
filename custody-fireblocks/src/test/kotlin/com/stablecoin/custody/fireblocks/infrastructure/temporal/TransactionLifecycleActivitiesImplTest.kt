@@ -3,13 +3,16 @@ package com.stablecoin.custody.fireblocks.infrastructure.temporal
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLog
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import com.stablecoin.custody.fireblocks.domain.audit.AuditOperation
+import com.stablecoin.custody.fireblocks.domain.audit.AuditStatus
 import com.stablecoin.custody.fireblocks.domain.event.TransactionStatusChangedEvent
 import com.stablecoin.custody.fireblocks.domain.port.EventPublisher
 import com.stablecoin.custody.fireblocks.domain.port.FireblocksTransactionPort
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionRepository
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionStatus
+import com.stablecoin.custody.fireblocks.infrastructure.temporal.dto.PollStatusResult
 import com.stablecoin.custody.fireblocks.infrastructure.temporal.dto.ReleaseFundsActivityCommand
 import com.stablecoin.custody.fireblocks.infrastructure.temporal.dto.ReserveFundsActivityCommand
+import com.stablecoin.custody.fireblocks.infrastructure.temporal.dto.SubmitResult
 import com.stablecoin.custody.fireblocks.test.fixtures.aFireblocksSubmitActivityCommand
 import com.stablecoin.custody.fireblocks.test.fixtures.aStartTransactionRequest
 import com.stablecoin.custody.fireblocks.test.fixtures.aTransaction
@@ -94,13 +97,28 @@ class TransactionLifecycleActivitiesImplTest {
         // then
         val savedSlot = slot<com.stablecoin.custody.fireblocks.domain.transaction.Transaction>()
         verify { transactionRepository.save(capture(savedSlot)) }
-        assertThat(savedSlot.captured.status).isEqualTo(TransactionStatus.SUBMITTED)
-        assertThat(savedSlot.captured.fireblocksTransactionId).isEqualTo(fireblocksTransactionId)
+        val expectedTransaction = transaction.markSubmitted(fireblocksTransactionId)
+        assertThat(savedSlot.captured)
+            .usingRecursiveComparison()
+            .ignoringFields("updatedAt")
+            .isEqualTo(expectedTransaction)
 
         val eventSlot = slot<TransactionStatusChangedEvent>()
         verify { eventPublisher.publish(capture(eventSlot)) }
-        assertThat(eventSlot.captured.previousStatus).isEqualTo("CREATED")
-        assertThat(eventSlot.captured.newStatus).isEqualTo("SUBMITTED")
+        val expectedEvent =
+            TransactionStatusChangedEvent(
+                transactionId = transaction.id.value,
+                externalTxId = transaction.externalTxId,
+                previousStatus = "CREATED",
+                newStatus = "SUBMITTED",
+                fireblocksStatus = null,
+                subStatus = null,
+                txHash = null,
+                occurredAt = eventSlot.captured.occurredAt,
+            )
+        assertThat(eventSlot.captured)
+            .usingRecursiveComparison()
+            .isEqualTo(expectedEvent)
     }
 
     @Test
@@ -120,11 +138,31 @@ class TransactionLifecycleActivitiesImplTest {
         // then
         val savedSlot = slot<com.stablecoin.custody.fireblocks.domain.transaction.Transaction>()
         verify { transactionRepository.save(capture(savedSlot)) }
-        assertThat(savedSlot.captured.status).isEqualTo(TransactionStatus.PROCESSING)
+        val expectedTransaction = transaction.updateStatus(TransactionStatus.PROCESSING, "PENDING_SIGNATURE", null, null)
+        assertThat(savedSlot.captured)
+            .usingRecursiveComparison()
+            .ignoringFields("updatedAt")
+            .isEqualTo(expectedTransaction)
 
         val auditSlot = slot<AuditLog>()
         verify { auditLogRepository.save(capture(auditSlot)) }
-        assertThat(auditSlot.captured.operation).isEqualTo(AuditOperation.TRANSACTION_STATUS_UPDATED)
+        val expectedAudit =
+            AuditLog.create(
+                operation = AuditOperation.TRANSACTION_STATUS_UPDATED,
+                actor = "temporal-activity",
+                resourceId = transactionId,
+                status = AuditStatus.SUCCESS,
+                details =
+                    mapOf(
+                        "previousStatus" to "SUBMITTED",
+                        "newStatus" to "PROCESSING",
+                        "fireblocksStatus" to "PENDING_SIGNATURE",
+                    ),
+            )
+        assertThat(auditSlot.captured)
+            .usingRecursiveComparison()
+            .ignoringFields("id", "timestamp")
+            .isEqualTo(expectedAudit)
     }
 
     @Test
@@ -144,8 +182,11 @@ class TransactionLifecycleActivitiesImplTest {
         // then
         val savedSlot = slot<com.stablecoin.custody.fireblocks.domain.transaction.Transaction>()
         verify { transactionRepository.save(capture(savedSlot)) }
-        assertThat(savedSlot.captured.status).isEqualTo(TransactionStatus.CONFIRMED)
-        assertThat(savedSlot.captured.txHash).isEqualTo("0xhash123")
+        val expectedTransaction = transaction.updateStatus(TransactionStatus.CONFIRMED, "COMPLETED", null, "0xhash123")
+        assertThat(savedSlot.captured)
+            .usingRecursiveComparison()
+            .ignoringFields("updatedAt")
+            .isEqualTo(expectedTransaction)
     }
 
     @Test
@@ -160,8 +201,14 @@ class TransactionLifecycleActivitiesImplTest {
         val result = activities.submitToFireblocks(command)
 
         // then
-        assertThat(result.fireblocksTransactionId).isEqualTo("fb-tx-456")
-        assertThat(result.status).isEqualTo("SUBMITTED")
+        val expected =
+            SubmitResult(
+                fireblocksTransactionId = "fb-tx-456",
+                status = "SUBMITTED",
+                subStatus = null,
+                txHash = null,
+            )
+        assertThat(result).usingRecursiveComparison().isEqualTo(expected)
     }
 
     @Test
@@ -181,9 +228,13 @@ class TransactionLifecycleActivitiesImplTest {
         val result = activities.fetchTransactionStatus("fb-tx-789")
 
         // then
-        assertThat(result.fireblocksStatus).isEqualTo("CONFIRMING")
-        assertThat(result.subStatus).isEqualTo("PENDING_BLOCKCHAIN_CONFIRMATIONS")
-        assertThat(result.txHash).isEqualTo("0xhash")
+        val expected =
+            PollStatusResult(
+                fireblocksStatus = "CONFIRMING",
+                subStatus = "PENDING_BLOCKCHAIN_CONFIRMATIONS",
+                txHash = "0xhash",
+            )
+        assertThat(result).usingRecursiveComparison().isEqualTo(expected)
     }
 
     @Test
