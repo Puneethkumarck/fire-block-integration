@@ -124,6 +124,7 @@ resilience4j:
           - com.stablecoin.custody.fireblocks.domain.shared.CustodyException
 
 temporal:
+  enabled: ${TEMPORAL_ENABLED:false}
   service-address: ${TEMPORAL_ADDRESS:localhost:7233}
   namespace: ${TEMPORAL_NAMESPACE:custody-fireblocks}
 

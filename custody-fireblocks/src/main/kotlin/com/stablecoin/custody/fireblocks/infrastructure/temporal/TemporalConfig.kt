@@ -16,18 +16,20 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-@ConditionalOnProperty(prefix = "temporal", name = ["service-address"])
+@ConditionalOnProperty(prefix = "temporal", name = ["enabled"], havingValue = "true")
 @EnableConfigurationProperties(TemporalProperties::class)
 class TemporalConfig(
     private val properties: TemporalProperties,
 ) {
     @Bean
-    fun temporalDataConverter(objectMapper: ObjectMapper): DataConverter =
-        DefaultDataConverter
+    fun temporalDataConverter(): DataConverter {
+        val objectMapper = ObjectMapper().findAndRegisterModules()
+        return DefaultDataConverter
             .newDefaultInstance()
             .withPayloadConverterOverrides(JacksonJsonPayloadConverter(objectMapper))
+    }
 
-    @Bean
+    @Bean(destroyMethod = "shutdown")
     fun workflowServiceStubs(): WorkflowServiceStubs =
         WorkflowServiceStubs.newServiceStubs(
             WorkflowServiceStubsOptions
@@ -50,7 +52,7 @@ class TemporalConfig(
                 .build(),
         )
 
-    @Bean
+    @Bean(destroyMethod = "shutdown")
     fun workerFactory(workflowClient: WorkflowClient): WorkerFactory =
         WorkerFactory.newInstance(
             workflowClient,
