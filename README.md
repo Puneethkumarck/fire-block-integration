@@ -379,7 +379,7 @@ Fireblocks reports balances as a multi-dimensional breakdown, not a single numbe
 | `frozen` | Administratively frozen funds | 0.0 ETH |
 | `locked` | Funds in unpublished outgoing transactions | 1.2 ETH |
 
-The `FireblocksBalanceResponse` DTO in this codebase maps all five fields. The Balance API returns `total` by default, with a `refresh=true` parameter that triggers a fresh query from Fireblocks (not just a cached read).
+The `FireblocksBalanceResponse` DTO in this codebase maps all five fields. The Balance API accepts a `refresh` query parameter and always queries Fireblocks via `POST /v1/vault/accounts/{vaultAccountId}/{assetId}/balance`, which triggers a balance refresh on the Fireblocks side.
 
 ### Transaction Authorization Policy (TAP)
 
@@ -414,7 +414,7 @@ Fireblocks TAP is a **second line of defense** — a configurable rule engine th
 
 ### The 6-Phase Transaction Lifecycle
 
-A Fireblocks transaction passes through six distinct phases, each with its own failure modes. This is why Fireblocks has 16+ primary statuses:
+A Fireblocks transaction passes through six distinct phases, each with its own failure modes. This is why Fireblocks has 15 primary statuses:
 
 ```text
  Phase 1          Phase 2            Phase 3         Phase 4          Phase 5         Phase 6
@@ -431,11 +431,11 @@ A Fireblocks transaction passes through six distinct phases, each with its own f
  ├── TIMEOUT (phase exceeded time limit)                                               │
  └── PARTIALLY_COMPLETED (multi-output partial success)                                │
                                                                                        ▼
- StableBridge compresses all 16+ statuses into 6 domain states:               CONFIRMED (terminal)
+ StableBridge compresses all 15 statuses into 6 domain states:               CONFIRMED (terminal)
  CREATED ──► SUBMITTED ──► PROCESSING ──► CONFIRMING ──► CONFIRMED / FAILED
 ```
 
-**Sub-statuses** provide additional detail within each primary status (e.g., `INSUFFICIENT_FUNDS`, `INVALID_ADDRESS`, `BLOCKED_BY_POLICY`, `PENDING_BLOCKCHAIN_CONFIRMATIONS`). StableBridge captures the `subStatus` field in transaction results for diagnostic purposes.
+**Sub-statuses** provide additional detail within each primary status (e.g., `INSUFFICIENT_FUNDS`, `PENDING_BLOCKCHAIN_CONFIRMATIONS`). StableBridge captures the `subStatus` field in `FireblocksTransactionResponse` and persists it as `fireblocksSubStatus` on the `Transaction` domain model for diagnostic purposes.
 
 ### Fee Estimation: Three Levels
 
@@ -453,7 +453,7 @@ For EVM chains, each level includes `gasPrice`. For UTXO chains (Bitcoin), each 
 
 ## The State Machine: Why Transactions Don't Get Lost
 
-Fireblocks has 15+ internal statuses. Our domain compresses them into 6 meaningful states with a strict, guarded state machine.
+Fireblocks has 15 primary statuses. Our domain compresses them into 6 meaningful states with a strict, guarded state machine.
 
 ```text
                  ┌─────────────────────────────────────────────────────────┐
@@ -603,7 +603,7 @@ Every Fireblocks API call passes through three layers of protection, applied via
  │  │  ┌─────────────────────────────────────┐   │   │
  │  │  │  Retry (order=3)                    │   │   │
  │  │  │  ─────────────                       │   │   │
- │  │  │  3 attempts: 500ms → 1s → 2s        │   │   │
+ │  │  │  3 attempts: 500ms → 1s (2x backoff)│   │   │
  │  │  │  Retries on: IOException, 5xx       │   │   │
  │  │  │  No retry on: 4xx (client error)    │   │   │
  │  │  │                                     │   │   │
@@ -1035,7 +1035,7 @@ Every error follows a consistent structure:
 
 ## Database Schema
 
-10 Flyway migrations, 7 tables, strict locking disciplines, and an immutable audit log.
+10 Flyway migrations, 10 tables, strict locking disciplines, and an immutable audit log.
 
 ```text
  vaults                          wallet_assets                deposit_addresses
