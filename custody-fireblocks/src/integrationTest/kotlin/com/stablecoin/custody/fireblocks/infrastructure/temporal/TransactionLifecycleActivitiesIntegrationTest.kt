@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
+import java.util.UUID
 
 @Transactional
 class TransactionLifecycleActivitiesIntegrationTest : AbstractIntegrationTest() {
@@ -54,19 +55,25 @@ class TransactionLifecycleActivitiesIntegrationTest : AbstractIntegrationTest() 
     fun `should create transaction and publish outbox event`() {
         // given
         val request = aStartTransactionRequest(externalTxId = "integ-ext-tx-outbox")
+        val before =
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM custody_outbox_record WHERE record_type = ?",
+                Long::class.java,
+                "com.stablecoin.custody.fireblocks.domain.event.TransactionStatusChangedEvent",
+            ) ?: 0L
 
         // when
         activities.createTransaction(request)
         entityManager.flush()
 
         // then
-        val count =
+        val after =
             jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM custody_outbox_record WHERE record_type = ?",
                 Long::class.java,
                 "com.stablecoin.custody.fireblocks.domain.event.TransactionStatusChangedEvent",
             )
-        assertThat(count).isGreaterThan(0)
+        assertThat(after).isEqualTo(before + 1)
     }
 
     @Test
@@ -227,10 +234,7 @@ class TransactionLifecycleActivitiesIntegrationTest : AbstractIntegrationTest() 
     @Test
     fun `should throw when recording submission for non-existent transaction`() {
         // given
-        val fakeTransactionId =
-            java.util.UUID
-                .randomUUID()
-                .toString()
+        val fakeTransactionId = UUID.randomUUID().toString()
 
         // when / then
         assertThatThrownBy { activities.recordSubmission(fakeTransactionId, "fb-tx-xxx") }

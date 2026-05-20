@@ -146,6 +146,23 @@ class TransactionLifecycleActivitiesImplTest {
             .ignoringFields("updatedAt")
             .isEqualTo(expectedTransaction)
 
+        val eventSlot = slot<TransactionStatusChangedEvent>()
+        verify { eventPublisher.publish(capture(eventSlot)) }
+        val expectedEvent =
+            TransactionStatusChangedEvent(
+                transactionId = transaction.id.value,
+                externalTxId = transaction.externalTxId,
+                previousStatus = "SUBMITTED",
+                newStatus = "PROCESSING",
+                fireblocksStatus = "PENDING_SIGNATURE",
+                subStatus = null,
+                txHash = null,
+                occurredAt = eventSlot.captured.occurredAt,
+            )
+        assertThat(eventSlot.captured)
+            .usingRecursiveComparison()
+            .isEqualTo(expectedEvent)
+
         val auditSlot = slot<AuditLog>()
         verify { auditLogRepository.save(capture(auditSlot)) }
         val expectedAudit =
@@ -189,6 +206,43 @@ class TransactionLifecycleActivitiesImplTest {
             .usingRecursiveComparison()
             .ignoringFields("updatedAt")
             .isEqualTo(expectedTransaction)
+
+        val eventSlot = slot<TransactionStatusChangedEvent>()
+        verify { eventPublisher.publish(capture(eventSlot)) }
+        val expectedEvent =
+            TransactionStatusChangedEvent(
+                transactionId = transaction.id.value,
+                externalTxId = transaction.externalTxId,
+                previousStatus = "CONFIRMING",
+                newStatus = "CONFIRMED",
+                fireblocksStatus = "COMPLETED",
+                subStatus = null,
+                txHash = "0xhash123",
+                occurredAt = eventSlot.captured.occurredAt,
+            )
+        assertThat(eventSlot.captured)
+            .usingRecursiveComparison()
+            .isEqualTo(expectedEvent)
+
+        val auditSlot = slot<AuditLog>()
+        verify { auditLogRepository.save(capture(auditSlot)) }
+        val expectedAudit =
+            AuditLog.create(
+                operation = AuditOperation.TRANSACTION_STATUS_UPDATED,
+                actor = "temporal-activity",
+                resourceId = transactionId,
+                status = AuditStatus.SUCCESS,
+                details =
+                    mapOf(
+                        "previousStatus" to "CONFIRMING",
+                        "newStatus" to "CONFIRMED",
+                        "fireblocksStatus" to "COMPLETED",
+                    ),
+            )
+        assertThat(auditSlot.captured)
+            .usingRecursiveComparison()
+            .ignoringFields("id", "timestamp")
+            .isEqualTo(expectedAudit)
     }
 
     @Test

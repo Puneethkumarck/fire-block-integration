@@ -23,6 +23,7 @@ import com.stablecoin.custody.fireblocks.infrastructure.temporal.dto.ReserveFund
 import com.stablecoin.custody.fireblocks.infrastructure.temporal.dto.ReserveFundsResult
 import com.stablecoin.custody.fireblocks.infrastructure.temporal.dto.StartTransactionRequest
 import com.stablecoin.custody.fireblocks.infrastructure.temporal.dto.SubmitResult
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -48,7 +49,16 @@ class TransactionLifecycleActivitiesImpl(
 
         val command = request.toSubmitTransactionCommand()
         val transaction = Transaction.create(command, request.fireblocksAssetId)
-        val saved = transactionRepository.save(transaction)
+        val saved =
+            try {
+                transactionRepository.save(transaction)
+            } catch (e: DataIntegrityViolationException) {
+                log.info("Concurrent duplicate detected: externalTxId={}", request.externalTxId)
+                val existing =
+                    transactionRepository.findByExternalTxId(request.externalTxId)
+                        ?: throw e
+                return CreateTransactionResult(transactionId = existing.id.value.toString())
+            }
 
         eventPublisher.publish(
             TransactionStatusChangedEvent(
