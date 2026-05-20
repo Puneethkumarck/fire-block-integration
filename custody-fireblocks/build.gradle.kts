@@ -67,6 +67,7 @@ dependencies {
     implementation(platform("software.amazon.awssdk:bom:2.44.7"))
     implementation("software.amazon.awssdk:secretsmanager")
     implementation("io.jsonwebtoken:jjwt-api:0.13.0")
+    implementation("io.temporal:temporal-sdk:1.28.0")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
 
@@ -86,6 +87,7 @@ dependencies {
     testFixturesImplementation("org.testcontainers:localstack")
     testFixturesImplementation(platform("software.amazon.awssdk:bom:2.44.7"))
     testFixturesImplementation("software.amazon.awssdk:secretsmanager")
+    testFixturesImplementation("io.temporal:temporal-testing:1.28.0")
 
     integrationTestImplementation("org.testcontainers:junit-jupiter")
     integrationTestImplementation("org.testcontainers:postgresql")
