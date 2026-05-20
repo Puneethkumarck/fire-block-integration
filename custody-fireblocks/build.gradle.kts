@@ -68,6 +68,7 @@ dependencies {
     implementation("software.amazon.awssdk:secretsmanager")
     implementation("io.jsonwebtoken:jjwt-api:0.13.0")
     implementation("io.temporal:temporal-sdk:1.28.0")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.21.2")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
 
