@@ -77,7 +77,7 @@ services:
       start_period: 15s
 
   temporal-db:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     ports:
       - "5433:5432"
