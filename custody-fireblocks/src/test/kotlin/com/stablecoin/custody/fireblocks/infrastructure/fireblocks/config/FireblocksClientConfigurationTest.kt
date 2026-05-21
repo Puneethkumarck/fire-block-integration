@@ -1,6 +1,7 @@
 package com.stablecoin.custody.fireblocks.infrastructure.fireblocks.config
 
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.FireblocksRateLimitException
+import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -9,18 +10,31 @@ import org.springframework.http.HttpStatus
 import org.springframework.test.web.client.MockRestServiceServer
 import org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo
 import org.springframework.test.web.client.response.MockRestResponseCreators.withStatus
-import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.RestClient
 
 class FireblocksClientConfigurationTest {
     private val meterRegistry = SimpleMeterRegistry()
 
+    private fun createTestClient(): Pair<RestClient, MockRestServiceServer> {
+        val restClientBuilder = RestClient.builder()
+        val mockServer = MockRestServiceServer.bindTo(restClientBuilder).build()
+        val rateLimitCounter =
+            Counter
+                .builder("fireblocks.api.rate_limited")
+                .description("Fireblocks 429 rate limit responses")
+                .register(meterRegistry)
+        val restClient =
+            restClientBuilder
+                .defaultStatusHandler({ it.value() == 429 }) { _, response ->
+                    handleRateLimit(rateLimitCounter, response)
+                }.build()
+        return restClient to mockServer
+    }
+
     @Test
     fun `should throw FireblocksRateLimitException with retry after on 429 response`() {
         // given
-        val restClientBuilder = RestClient.builder()
-        val mockServer = MockRestServiceServer.bindTo(restClientBuilder).build()
-
+        val (restClient, mockServer) = createTestClient()
         mockServer
             .expect(requestTo("/test"))
             .andRespond(
@@ -28,25 +42,6 @@ class FireblocksClientConfigurationTest {
                     .header("Retry-After", "5")
                     .body("rate limited"),
             )
-
-        val rateLimitCounter = meterRegistry.counter("fireblocks.api.rate_limited")
-        val restClient =
-            restClientBuilder
-                .defaultStatusHandler({ it.value() == 429 }) { _, response ->
-                    rateLimitCounter.increment()
-                    val retryAfter = response.headers.getFirst("Retry-After")?.toLongOrNull()
-                    throw FireblocksRateLimitException(
-                        retryAfterSeconds = retryAfter,
-                        cause =
-                            HttpClientErrorException.create(
-                                response.statusCode,
-                                response.statusText,
-                                response.headers,
-                                response.body.readAllBytes(),
-                                null,
-                            ),
-                    )
-                }.build()
 
         // when / then
         assertThatThrownBy {
@@ -64,31 +59,10 @@ class FireblocksClientConfigurationTest {
     @Test
     fun `should parse null retry after when header is missing`() {
         // given
-        val restClientBuilder = RestClient.builder()
-        val mockServer = MockRestServiceServer.bindTo(restClientBuilder).build()
-
+        val (restClient, mockServer) = createTestClient()
         mockServer
             .expect(requestTo("/test"))
             .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS).body("rate limited"))
-
-        val rateLimitCounter = meterRegistry.counter("fireblocks.api.rate_limited")
-        val restClient =
-            restClientBuilder
-                .defaultStatusHandler({ it.value() == 429 }) { _, response ->
-                    rateLimitCounter.increment()
-                    val retryAfter = response.headers.getFirst("Retry-After")?.toLongOrNull()
-                    throw FireblocksRateLimitException(
-                        retryAfterSeconds = retryAfter,
-                        cause =
-                            HttpClientErrorException.create(
-                                response.statusCode,
-                                response.statusText,
-                                response.headers,
-                                response.body.readAllBytes(),
-                                null,
-                            ),
-                    )
-                }.build()
 
         // when / then
         assertThatThrownBy {
@@ -106,9 +80,7 @@ class FireblocksClientConfigurationTest {
     @Test
     fun `should increment rate limit counter on 429`() {
         // given
-        val restClientBuilder = RestClient.builder()
-        val mockServer = MockRestServiceServer.bindTo(restClientBuilder).build()
-
+        val (restClient, mockServer) = createTestClient()
         mockServer
             .expect(requestTo("/test"))
             .andRespond(
@@ -116,25 +88,6 @@ class FireblocksClientConfigurationTest {
                     .header("Retry-After", "10")
                     .body("rate limited"),
             )
-
-        val rateLimitCounter = meterRegistry.counter("fireblocks.api.rate_limited")
-        val restClient =
-            restClientBuilder
-                .defaultStatusHandler({ it.value() == 429 }) { _, response ->
-                    rateLimitCounter.increment()
-                    val retryAfter = response.headers.getFirst("Retry-After")?.toLongOrNull()
-                    throw FireblocksRateLimitException(
-                        retryAfterSeconds = retryAfter,
-                        cause =
-                            HttpClientErrorException.create(
-                                response.statusCode,
-                                response.statusText,
-                                response.headers,
-                                response.body.readAllBytes(),
-                                null,
-                            ),
-                    )
-                }.build()
 
         // when
         try {
