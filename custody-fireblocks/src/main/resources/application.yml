@@ -120,6 +120,7 @@ resilience4j:
         retryExceptions:
           - java.io.IOException
           - org.springframework.web.client.HttpServerErrorException
+          - com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.FireblocksRateLimitException
         ignoreExceptions:
           - com.stablecoin.custody.fireblocks.domain.shared.CustodyException
 
