@@ -1,6 +1,7 @@
 package com.stablecoin.custody.fireblocks.application.controller
 
 import com.github.tomakehurst.wiremock.client.WireMock
+import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.stablecoin.custody.fireblocks.AbstractMockMvcIntegrationTest
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionRepository
 import com.stablecoin.custody.fireblocks.domain.vault.VaultRepository
@@ -175,6 +176,9 @@ class TransactionControllerIntegrationTest : AbstractMockMvcIntegrationTest() {
                     .content(submitTransactionJson(externalTxId, vault.id.value)),
             ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.externalTxId").value(externalTxId))
+
+        wireMock.verify(1, postRequestedFor(WireMock.urlPathMatching("/v1/vault/accounts/.+/lock_allocation")))
+        wireMock.verify(1, postRequestedFor(WireMock.urlPathEqualTo("/v1/transactions")))
     }
 
     @Test

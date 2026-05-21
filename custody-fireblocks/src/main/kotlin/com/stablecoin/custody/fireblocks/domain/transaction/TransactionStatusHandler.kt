@@ -58,6 +58,10 @@ class TransactionStatusHandler(
         val updated = locked.updateStatus(newStatus, fireblocksStatus, subStatus, txHash)
         val result = transactionRepository.save(updated)
 
+        if (newStatus == TransactionStatus.FAILED) {
+            fundAllocationService.releaseByTransactionId(result.id.value)
+        }
+
         eventPublisher.publish(
             TransactionStatusChangedEvent(
                 transactionId = result.id.value,
@@ -85,10 +89,6 @@ class TransactionStatusHandler(
                     ),
             ),
         )
-
-        if (newStatus == TransactionStatus.FAILED) {
-            fundAllocationService.releaseByTransactionId(result.id.value)
-        }
 
         log.info("Updated transaction {} status: {} -> {}", fireblocksTxId, previousStatus, newStatus)
     }

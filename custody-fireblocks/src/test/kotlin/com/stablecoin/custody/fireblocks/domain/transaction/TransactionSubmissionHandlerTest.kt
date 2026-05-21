@@ -27,6 +27,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -482,7 +483,7 @@ class TransactionSubmissionHandlerTest {
         handler.handle(command)
 
         // then
-        verify {
+        verifyOrder {
             fundAllocationService.createAndLock(
                 match { it == "alloc-${command.externalTxId}" },
                 any(),
@@ -492,6 +493,7 @@ class TransactionSubmissionHandlerTest {
                 any(),
                 any(),
             )
+            fireblocksClient.submitTransaction(any())
         }
     }
 

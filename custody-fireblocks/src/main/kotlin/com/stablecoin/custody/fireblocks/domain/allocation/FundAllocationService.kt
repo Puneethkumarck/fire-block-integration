@@ -53,7 +53,7 @@ class FundAllocationService(
             )
         val saved = fundAllocationRepository.save(allocation)
 
-        return try {
+        try {
             fireblocksVaultPort.lockAllocation(
                 LockAllocationCommand(
                     allocationId = allocationId,
@@ -62,21 +62,6 @@ class FundAllocationService(
                     amount = amount,
                 ),
             )
-
-            val locked = saved.lock()
-            val result = fundAllocationRepository.save(locked)
-
-            auditLogRepository.save(
-                AuditLog.create(
-                    operation = AuditOperation.ALLOCATION_LOCKED,
-                    actor = "system",
-                    resourceId = result.id.toString(),
-                    status = AuditStatus.SUCCESS,
-                    details = mapOf("allocationId" to allocationId, "amount" to amount.toPlainString()),
-                ),
-            )
-
-            result
         } catch (e: Exception) {
             log.error("Failed to lock allocation: allocationId={}", allocationId, e)
 
@@ -93,8 +78,23 @@ class FundAllocationService(
                 ),
             )
 
-            result
+            return result
         }
+
+        val locked = saved.lock()
+        val result = fundAllocationRepository.save(locked)
+
+        auditLogRepository.save(
+            AuditLog.create(
+                operation = AuditOperation.ALLOCATION_LOCKED,
+                actor = "system",
+                resourceId = result.id.toString(),
+                status = AuditStatus.SUCCESS,
+                details = mapOf("allocationId" to allocationId, "amount" to amount.toPlainString()),
+            ),
+        )
+
+        return result
     }
 
     @Transactional

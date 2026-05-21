@@ -22,6 +22,10 @@ data class FundAllocation(
 ) : StateProvider<AllocationStatus> {
     init {
         require(allocationId.isNotBlank()) { "allocationId must not be blank" }
+        require(fireblocksVaultId.isNotBlank()) { "fireblocksVaultId must not be blank" }
+        require(assetId.isNotBlank()) { "assetId must not be blank" }
+        require(currency.isNotBlank()) { "currency must not be blank" }
+        require(protocol.isNotBlank()) { "protocol must not be blank" }
         require(amount > BigDecimal.ZERO) { "amount must be positive" }
     }
 

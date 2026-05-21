@@ -10,11 +10,14 @@ import java.util.UUID
 class FundAllocationTest {
     @Test
     fun `should create allocation with PENDING status`() {
+        // given
+        val vaultId = UUID.randomUUID()
+
         // when
         val result =
             FundAllocation.create(
                 allocationId = "alloc-001",
-                vaultId = UUID.randomUUID(),
+                vaultId = vaultId,
                 fireblocksVaultId = "fb-vault-123",
                 assetId = "BTC",
                 currency = "BTC",
@@ -26,6 +29,7 @@ class FundAllocationTest {
         val expected =
             aFundAllocation(
                 allocationId = "alloc-001",
+                vaultId = vaultId,
                 fireblocksVaultId = "fb-vault-123",
                 assetId = "BTC",
                 currency = "BTC",
@@ -36,7 +40,7 @@ class FundAllocationTest {
             )
         assertThat(result)
             .usingRecursiveComparison()
-            .ignoringFields("id", "vaultId", "createdAt", "updatedAt")
+            .ignoringFields("id", "createdAt", "updatedAt")
             .isEqualTo(expected)
     }
 

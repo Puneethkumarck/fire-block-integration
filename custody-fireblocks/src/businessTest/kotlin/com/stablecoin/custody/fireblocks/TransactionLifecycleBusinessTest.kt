@@ -286,6 +286,8 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
             assertThat(updated!!.status).isEqualTo(TransactionStatus.FAILED)
         }
 
+        wireMock.verify(1, postRequestedFor(urlPathMatching("/v1/vault/accounts/.+/release_allocation")))
+
         // then
         assertKafkaTopicContains(TransactionStatusChangedEvent.TOPIC, externalTxId)
     }

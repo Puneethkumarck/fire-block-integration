@@ -18,7 +18,7 @@ fun aFundAllocation(
     status: AllocationStatus = AllocationStatus.PENDING,
     transactionId: UUID? = null,
     createdAt: Instant = Instant.now(),
-    updatedAt: Instant = Instant.now(),
+    updatedAt: Instant = createdAt,
     version: Long = 0,
 ) = FundAllocation(
     id = id,
