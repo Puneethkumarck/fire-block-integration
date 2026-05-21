@@ -51,6 +51,16 @@ object SharedTestContainers {
         schemaRegistry.start()
         localstack.start()
         seedSecrets()
+
+        Runtime.getRuntime().addShutdownHook(
+            Thread {
+                schemaRegistry.stop()
+                kafka.stop()
+                postgres.stop()
+                localstack.stop()
+                network.close()
+            },
+        )
     }
 
     private fun seedSecrets() {
