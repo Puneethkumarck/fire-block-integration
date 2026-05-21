@@ -136,6 +136,10 @@ class FundAllocationService(
             throw AllocationAlreadyReleasedException(allocationId)
         }
 
+        check(AllocationStatus.canTransition(allocation.status, AllocationStatus.RELEASED)) {
+            "Cannot release allocation $allocationId from status ${allocation.status}"
+        }
+
         fireblocksVaultPort.releaseAllocation(
             ReleaseAllocationCommand(
                 allocationId = allocationId,

@@ -86,7 +86,7 @@ class TransactionStatusHandler(
             ),
         )
 
-        if (newStatus == TransactionStatus.FAILED && newStatus.terminal) {
+        if (newStatus == TransactionStatus.FAILED) {
             fundAllocationService.releaseByTransactionId(result.id.value)
         }
 

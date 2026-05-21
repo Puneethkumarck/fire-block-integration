@@ -132,7 +132,11 @@ class TransactionSubmissionHandler(
         } catch (e: Exception) {
             log.error("Fireblocks transaction submission failed: externalTxId={}", command.externalTxId, e)
 
-            fundAllocationService.release(allocation.allocationId)
+            try {
+                fundAllocationService.release(allocation.allocationId)
+            } catch (releaseEx: Exception) {
+                log.error("Failed to release allocation during submission failure: allocationId={}", allocation.allocationId, releaseEx)
+            }
 
             val failed = saved.markFailed()
             val result = transactionRepository.save(failed)
