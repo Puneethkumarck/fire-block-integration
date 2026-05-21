@@ -18,6 +18,7 @@ import io.github.resilience4j.bulkhead.annotation.Bulkhead
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.stereotype.Component
+import org.springframework.web.client.HttpClientErrorException
 import java.math.BigDecimal
 
 @Component
@@ -74,6 +75,18 @@ internal class FireblocksTransactionAdapter(
         val request = command.toEstimateFeeRequest()
         val response = transactionClient.estimateFee(request)
         return response.toFeeEstimateResult()
+    }
+
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    override fun cancelTransaction(fireblocksTxId: String): Boolean {
+        log.info("Cancelling transaction: fireblocksTxId={}", fireblocksTxId)
+        return try {
+            val response = transactionClient.cancelTransaction(fireblocksTxId)
+            response.success
+        } catch (_: HttpClientErrorException.BadRequest) {
+            false
+        }
     }
 
     fun FireblocksSubmitCommand.toCreateTransactionRequest() =

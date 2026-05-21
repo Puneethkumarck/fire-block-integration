@@ -1,6 +1,7 @@
 package com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client
 
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.CreateTransactionRequest
+import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksCancelTransactionResponse
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksEstimateFeeRequest
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksEstimateFeeResponse
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksTransactionResponse
@@ -31,4 +32,9 @@ interface FireblocksTransactionClient {
     fun estimateFee(
         @RequestBody request: FireblocksEstimateFeeRequest,
     ): FireblocksEstimateFeeResponse
+
+    @PostExchange("/v1/transactions/{txId}/cancel")
+    fun cancelTransaction(
+        @PathVariable txId: String,
+    ): FireblocksCancelTransactionResponse
 }

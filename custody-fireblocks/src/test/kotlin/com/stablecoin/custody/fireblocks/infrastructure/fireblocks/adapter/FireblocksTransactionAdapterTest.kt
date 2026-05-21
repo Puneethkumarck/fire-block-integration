@@ -8,6 +8,7 @@ import com.stablecoin.custody.fireblocks.domain.transaction.FeeLevel
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.FireblocksTransactionClient
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.CreateTransactionRequest
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.DestinationTransferPeerPath
+import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksCancelTransactionResponse
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksEstimateFeeRequest
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksEstimateFeeResponse
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksFeeLevel
@@ -130,6 +131,39 @@ class FireblocksTransactionAdapterTest {
 
         // then
         assertThat(result).isNull()
+    }
+
+    @Test
+    fun `should cancel transaction successfully`() {
+        // given
+        val response = FireblocksCancelTransactionResponse(success = true)
+        every { transactionClient.cancelTransaction("fb-tx-cancel-001") } returns response
+
+        // when
+        val result = adapter.cancelTransaction("fb-tx-cancel-001")
+
+        // then
+        assertThat(result).isTrue()
+        verify { transactionClient.cancelTransaction("fb-tx-cancel-001") }
+    }
+
+    @Test
+    fun `should return false when Fireblocks cancel returns 400`() {
+        // given
+        every { transactionClient.cancelTransaction("fb-tx-cancel-002") } throws
+            HttpClientErrorException.create(
+                org.springframework.http.HttpStatus.BAD_REQUEST,
+                "Bad Request",
+                org.springframework.http.HttpHeaders.EMPTY,
+                ByteArray(0),
+                null,
+            )
+
+        // when
+        val result = adapter.cancelTransaction("fb-tx-cancel-002")
+
+        // then
+        assertThat(result).isFalse()
     }
 
     @Test

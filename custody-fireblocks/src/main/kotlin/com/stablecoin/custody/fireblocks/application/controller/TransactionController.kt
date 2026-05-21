@@ -2,6 +2,7 @@ package com.stablecoin.custody.fireblocks.application.controller
 
 import com.stablecoin.custody.fireblocks.api.request.EstimateFeeRequest
 import com.stablecoin.custody.fireblocks.api.request.SubmitTransactionRequest
+import com.stablecoin.custody.fireblocks.api.response.CancelTransactionResponse
 import com.stablecoin.custody.fireblocks.api.response.EstimateFeeResponse
 import com.stablecoin.custody.fireblocks.api.response.TransactionResponse
 import com.stablecoin.custody.fireblocks.application.mapper.toCommand
@@ -9,6 +10,8 @@ import com.stablecoin.custody.fireblocks.application.mapper.toEstimateFeeCommand
 import com.stablecoin.custody.fireblocks.application.mapper.toResponse
 import com.stablecoin.custody.fireblocks.domain.exception.AssetNotFoundException
 import com.stablecoin.custody.fireblocks.domain.port.FireblocksTransactionPort
+import com.stablecoin.custody.fireblocks.domain.transaction.TransactionCancellationHandler
+import com.stablecoin.custody.fireblocks.domain.transaction.TransactionId
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionQueryService
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionSubmissionHandler
 import com.stablecoin.custody.fireblocks.domain.vault.VaultId
@@ -31,6 +34,7 @@ import java.util.UUID
 @RequestMapping("/api/v1")
 class TransactionController(
     private val transactionSubmissionHandler: TransactionSubmissionHandler,
+    private val transactionCancellationHandler: TransactionCancellationHandler,
     private val transactionQueryService: TransactionQueryService,
     private val vaultQueryService: VaultQueryService,
     private val supportedAssetRepository: SupportedAssetRepository,
@@ -78,5 +82,19 @@ class TransactionController(
                 request.toEstimateFeeCommand(fireblocksVaultId, supportedAsset.fireblocksAssetId),
             )
         return ResponseEntity.ok(result.toResponse())
+    }
+
+    @PostMapping("/transactions/{id}/cancel")
+    fun cancelTransaction(
+        @PathVariable id: UUID,
+    ): ResponseEntity<CancelTransactionResponse> {
+        val transaction = transactionCancellationHandler.handle(TransactionId(id))
+        return ResponseEntity.ok(
+            CancelTransactionResponse(
+                transactionId = transaction.id.value,
+                status = transaction.status.name,
+                message = "Cancellation requested",
+            ),
+        )
     }
 }
