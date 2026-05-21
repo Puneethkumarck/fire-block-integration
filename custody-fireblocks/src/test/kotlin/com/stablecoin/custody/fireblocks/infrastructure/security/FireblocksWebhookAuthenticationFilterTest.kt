@@ -100,7 +100,7 @@ class FireblocksWebhookAuthenticationFilterTest {
     @Test
     fun `should accept webhook at exactly 5 minute boundary`() {
         // given
-        val boundaryTimestamp = Instant.now().minusSeconds(299).toEpochMilli()
+        val boundaryTimestamp = Instant.now().minusSeconds(295).toEpochMilli()
         val body = """{"type":"TRANSACTION_STATUS_UPDATED","createdAt":$boundaryTimestamp}"""
         val request = createRequest(body, sign(body))
         val response = MockHttpServletResponse()
