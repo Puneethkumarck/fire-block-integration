@@ -76,6 +76,18 @@ internal class FireblocksTransactionAdapter(
         return response.toFeeEstimateResult()
     }
 
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    override fun cancelTransaction(fireblocksTxId: String): Boolean {
+        log.info("Cancelling transaction: fireblocksTxId={}", fireblocksTxId)
+        return try {
+            val response = transactionClient.cancelTransaction(fireblocksTxId)
+            response.success
+        } catch (_: org.springframework.web.client.HttpClientErrorException.BadRequest) {
+            false
+        }
+    }
+
     fun FireblocksSubmitCommand.toCreateTransactionRequest() =
         CreateTransactionRequest(
             externalTxId = externalTxId,

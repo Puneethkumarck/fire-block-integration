@@ -1,13 +1,18 @@
 package com.stablecoin.custody.fireblocks.application.controller
 
 import com.stablecoin.custody.fireblocks.application.exception.GlobalExceptionHandler
+import com.stablecoin.custody.fireblocks.domain.exception.TransactionAlreadyTerminalException
+import com.stablecoin.custody.fireblocks.domain.exception.TransactionNotCancellableException
 import com.stablecoin.custody.fireblocks.domain.exception.TransactionNotFoundException
 import com.stablecoin.custody.fireblocks.domain.exception.VaultNotFoundException
 import com.stablecoin.custody.fireblocks.domain.port.FeeEstimateResult
 import com.stablecoin.custody.fireblocks.domain.port.FireblocksEstimateFeeCommand
 import com.stablecoin.custody.fireblocks.domain.port.FireblocksTransactionPort
 import com.stablecoin.custody.fireblocks.domain.transaction.SubmitTransactionCommand
+import com.stablecoin.custody.fireblocks.domain.transaction.TransactionCancellationHandler
+import com.stablecoin.custody.fireblocks.domain.transaction.TransactionId
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionQueryService
+import com.stablecoin.custody.fireblocks.domain.transaction.TransactionStatus
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionSubmissionHandler
 import com.stablecoin.custody.fireblocks.domain.vault.VaultId
 import com.stablecoin.custody.fireblocks.domain.vault.VaultQueryService
@@ -34,6 +39,7 @@ import java.util.UUID
 
 class TransactionControllerTest {
     private val transactionSubmissionHandler: TransactionSubmissionHandler = mockk()
+    private val transactionCancellationHandler: TransactionCancellationHandler = mockk()
     private val transactionQueryService: TransactionQueryService = mockk()
     private val vaultQueryService: VaultQueryService = mockk()
     private val supportedAssetRepository: SupportedAssetRepository = mockk()
@@ -41,6 +47,7 @@ class TransactionControllerTest {
     private val controller =
         TransactionController(
             transactionSubmissionHandler,
+            transactionCancellationHandler,
             transactionQueryService,
             vaultQueryService,
             supportedAssetRepository,
@@ -448,5 +455,54 @@ class TransactionControllerTest {
             .andExpect(jsonPath("$.low").value(0.00001))
             .andExpect(jsonPath("$.medium").value(0.00005))
             .andExpect(jsonPath("$.high").value(0.0001))
+    }
+
+    @Test
+    fun `should cancel transaction and return 200`() {
+        // given
+        val transactionId = UUID.randomUUID()
+        val transaction =
+            aTransaction(
+                id = TransactionId(transactionId),
+                status = TransactionStatus.PROCESSING,
+                fireblocksTransactionId = "fb-tx-cancel",
+            )
+        every { transactionCancellationHandler.handle(TransactionId(transactionId)) } returns transaction
+
+        // when / then
+        mockMvc
+            .perform(post("/api/v1/transactions/$transactionId/cancel"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.transactionId").value(transactionId.toString()))
+            .andExpect(jsonPath("$.status").value("PROCESSING"))
+            .andExpect(jsonPath("$.message").value("Cancellation requested"))
+    }
+
+    @Test
+    fun `should return 409 for terminal transaction cancellation`() {
+        // given
+        val transactionId = UUID.randomUUID()
+        every { transactionCancellationHandler.handle(TransactionId(transactionId)) } throws
+            TransactionAlreadyTerminalException(transactionId.toString(), "CONFIRMED")
+
+        // when / then
+        mockMvc
+            .perform(post("/api/v1/transactions/$transactionId/cancel"))
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.code").value("CUSTODY-2011"))
+    }
+
+    @Test
+    fun `should return 409 for not-cancellable transaction`() {
+        // given
+        val transactionId = UUID.randomUUID()
+        every { transactionCancellationHandler.handle(TransactionId(transactionId)) } throws
+            TransactionNotCancellableException(transactionId.toString())
+
+        // when / then
+        mockMvc
+            .perform(post("/api/v1/transactions/$transactionId/cancel"))
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.code").value("CUSTODY-2010"))
     }
 }

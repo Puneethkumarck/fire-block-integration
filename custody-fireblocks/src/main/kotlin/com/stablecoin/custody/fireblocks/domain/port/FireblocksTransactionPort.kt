@@ -8,4 +8,6 @@ interface FireblocksTransactionPort {
     fun getByExternalId(externalTxId: String): TransactionResult?
 
     fun estimateFee(command: FireblocksEstimateFeeCommand): FeeEstimateResult
+
+    fun cancelTransaction(fireblocksTxId: String): Boolean
 }

@@ -88,3 +88,7 @@ data class OneTimeAddress(
     val address: String,
     val tag: String? = null,
 )
+
+data class FireblocksCancelTransactionResponse(
+    val success: Boolean,
+)
