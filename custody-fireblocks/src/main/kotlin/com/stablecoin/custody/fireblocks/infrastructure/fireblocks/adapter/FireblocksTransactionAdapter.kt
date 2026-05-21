@@ -18,6 +18,7 @@ import io.github.resilience4j.bulkhead.annotation.Bulkhead
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
 import org.springframework.stereotype.Component
+import org.springframework.web.client.HttpClientErrorException
 import java.math.BigDecimal
 
 @Component
@@ -83,7 +84,7 @@ internal class FireblocksTransactionAdapter(
         return try {
             val response = transactionClient.cancelTransaction(fireblocksTxId)
             response.success
-        } catch (_: org.springframework.web.client.HttpClientErrorException.BadRequest) {
+        } catch (_: HttpClientErrorException.BadRequest) {
             false
         }
     }

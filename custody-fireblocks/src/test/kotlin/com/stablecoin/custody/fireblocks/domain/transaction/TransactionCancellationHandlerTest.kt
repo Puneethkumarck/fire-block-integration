@@ -17,6 +17,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.util.UUID
 
 @ExtendWith(MockKExtension::class)
 class TransactionCancellationHandlerTest {
@@ -61,12 +62,14 @@ class TransactionCancellationHandlerTest {
     @Test
     fun `should throw TransactionNotFoundException when transaction does not exist`() {
         // given
-        val transactionId = TransactionId(java.util.UUID.randomUUID())
+        val transactionId = TransactionId(UUID.randomUUID())
         every { transactionRepository.findById(transactionId) } returns null
 
-        // when/then
-        assertThatThrownBy { handler.handle(transactionId) }
-            .isInstanceOf(TransactionNotFoundException::class.java)
+        // when
+        val thrown = assertThatThrownBy { handler.handle(transactionId) }
+
+        // then
+        thrown.isInstanceOf(TransactionNotFoundException::class.java)
     }
 
     @Test
@@ -79,9 +82,11 @@ class TransactionCancellationHandlerTest {
             )
         every { transactionRepository.findById(transaction.id) } returns transaction
 
-        // when/then
-        assertThatThrownBy { handler.handle(transaction.id) }
-            .isInstanceOf(TransactionAlreadyTerminalException::class.java)
+        // when
+        val thrown = assertThatThrownBy { handler.handle(transaction.id) }
+
+        // then
+        thrown.isInstanceOf(TransactionAlreadyTerminalException::class.java)
     }
 
     @Test
@@ -94,9 +99,11 @@ class TransactionCancellationHandlerTest {
             )
         every { transactionRepository.findById(transaction.id) } returns transaction
 
-        // when/then
-        assertThatThrownBy { handler.handle(transaction.id) }
-            .isInstanceOf(TransactionAlreadyTerminalException::class.java)
+        // when
+        val thrown = assertThatThrownBy { handler.handle(transaction.id) }
+
+        // then
+        thrown.isInstanceOf(TransactionAlreadyTerminalException::class.java)
     }
 
     @Test
@@ -109,9 +116,11 @@ class TransactionCancellationHandlerTest {
             )
         every { transactionRepository.findById(transaction.id) } returns transaction
 
-        // when/then
-        assertThatThrownBy { handler.handle(transaction.id) }
-            .isInstanceOf(InvalidTransactionStateException::class.java)
+        // when
+        val thrown = assertThatThrownBy { handler.handle(transaction.id) }
+
+        // then
+        thrown.isInstanceOf(InvalidTransactionStateException::class.java)
     }
 
     @Test
@@ -126,9 +135,11 @@ class TransactionCancellationHandlerTest {
         every { fireblocksTransactionPort.cancelTransaction("fb-tx-004") } returns false
         every { auditLogRepository.save(any()) } returnsArgument 0
 
-        // when/then
-        assertThatThrownBy { handler.handle(transaction.id) }
-            .isInstanceOf(TransactionNotCancellableException::class.java)
+        // when
+        val thrown = assertThatThrownBy { handler.handle(transaction.id) }
+
+        // then
+        thrown.isInstanceOf(TransactionNotCancellableException::class.java)
         verify {
             auditLogRepository.save(
                 match {
