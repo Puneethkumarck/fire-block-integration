@@ -6,6 +6,9 @@ import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.Fi
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksVaultAccountResponse
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksWalletAssetResponse
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.GenerateAddressRequest
+import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.LockAllocationRequest
+import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.LockAllocationResponse
+import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.ReleaseAllocationRequest
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.service.annotation.GetExchange
@@ -42,4 +45,16 @@ interface FireblocksVaultClient {
         @PathVariable vaultAccountId: String,
         @PathVariable assetId: String,
     ): FireblocksBalanceResponse
+
+    @PostExchange("/v1/vault/accounts/{vaultAccountId}/lock_allocation")
+    fun lockAllocation(
+        @PathVariable vaultAccountId: String,
+        @RequestBody request: LockAllocationRequest,
+    ): LockAllocationResponse
+
+    @PostExchange("/v1/vault/accounts/{vaultAccountId}/release_allocation")
+    fun releaseAllocation(
+        @PathVariable vaultAccountId: String,
+        @RequestBody request: ReleaseAllocationRequest,
+    )
 }

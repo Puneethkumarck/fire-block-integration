@@ -38,3 +38,8 @@ data class FeeEstimateResult(
     val medium: BigDecimal,
     val high: BigDecimal,
 )
+
+data class AllocationResult(
+    val id: String,
+    val status: String,
+)

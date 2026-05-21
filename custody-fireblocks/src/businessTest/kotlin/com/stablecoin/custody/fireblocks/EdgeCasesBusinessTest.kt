@@ -5,6 +5,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
+import com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching
 import com.github.tomakehurst.wiremock.stubbing.Scenario
 import com.jayway.jsonpath.JsonPath
 import com.stablecoin.custody.fireblocks.domain.vault.Vault
@@ -502,7 +503,7 @@ class EdgeCasesBusinessTest : AbstractBusinessTest() {
     fun `should open circuit breaker after consecutive failures and block subsequent calls`() {
         // given
         wireMock.stubFor(
-            post(urlPathEqualTo("/v1/transactions"))
+            post(urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
                 .willReturn(aResponse().withStatus(500).withBody("""{"message":"Internal Server Error"}""")),
         )
 
@@ -546,15 +547,15 @@ class EdgeCasesBusinessTest : AbstractBusinessTest() {
                     ),
             ).andExpect(status().isCreated)
 
-        // then — WireMock should have received exactly 3 calls, not 4
-        wireMock.verify(3, postRequestedFor(urlPathEqualTo("/v1/transactions")))
+        // then — WireMock should have received exactly 3 lock_allocation calls, not 4
+        wireMock.verify(3, postRequestedFor(urlPathMatching("/v1/vault/accounts/.+/lock_allocation")))
     }
 
     @Test
     fun `should maintain separate circuit breaker for balance queries`() {
-        // given — trip the main fireblocks circuit breaker
+        // given — trip the main fireblocks circuit breaker via allocation lock failures
         wireMock.stubFor(
-            post(urlPathEqualTo("/v1/transactions"))
+            post(urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
                 .willReturn(aResponse().withStatus(500).withBody("""{"message":"error"}""")),
         )
 

@@ -1,5 +1,7 @@
 package com.stablecoin.custody.fireblocks.domain.transaction
 
+import com.stablecoin.custody.fireblocks.domain.allocation.AllocationStatus
+import com.stablecoin.custody.fireblocks.domain.allocation.FundAllocationService
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import com.stablecoin.custody.fireblocks.domain.audit.AuditOperation
 import com.stablecoin.custody.fireblocks.domain.audit.AuditStatus
@@ -13,6 +15,7 @@ import com.stablecoin.custody.fireblocks.domain.vault.VaultId
 import com.stablecoin.custody.fireblocks.domain.vault.VaultQueryService
 import com.stablecoin.custody.fireblocks.domain.vault.VaultStatus
 import com.stablecoin.custody.fireblocks.domain.wallet.SupportedAssetRepository
+import com.stablecoin.custody.fireblocks.test.fixtures.aFundAllocation
 import com.stablecoin.custody.fireblocks.test.fixtures.aSubmitTransactionCommand
 import com.stablecoin.custody.fireblocks.test.fixtures.aSupportedAsset
 import com.stablecoin.custody.fireblocks.test.fixtures.aTransaction
@@ -38,6 +41,7 @@ class TransactionSubmissionHandlerTest {
     private val fireblocksClient: FireblocksTransactionPort = mockk()
     private val eventPublisher: EventPublisher<TransactionStatusChangedEvent> = mockk()
     private val auditLogRepository: AuditLogRepository = mockk()
+    private val fundAllocationService: FundAllocationService = mockk()
 
     private val handler =
         TransactionSubmissionHandler(
@@ -47,6 +51,7 @@ class TransactionSubmissionHandlerTest {
             fireblocksClient,
             eventPublisher,
             auditLogRepository,
+            fundAllocationService,
         )
 
     @Test
@@ -57,12 +62,15 @@ class TransactionSubmissionHandlerTest {
         val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
         val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol, fireblocksAssetId = "BTC_TEST")
         val transactionResult = aTransactionResult(id = "fb-tx-001", status = "SUBMITTED")
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
 
         every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
         every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
         every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
         every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
         every { fireblocksClient.submitTransaction(any()) } returns transactionResult
+        every { fundAllocationService.consume(any(), any()) } returns lockedAllocation
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
 
@@ -97,12 +105,15 @@ class TransactionSubmissionHandlerTest {
         val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
         val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
         val transactionResult = aTransactionResult()
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
 
         every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
         every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
         every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
         every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
         every { fireblocksClient.submitTransaction(any()) } returns transactionResult
+        every { fundAllocationService.consume(any(), any()) } returns lockedAllocation
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
 
@@ -150,12 +161,15 @@ class TransactionSubmissionHandlerTest {
         val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
         val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
         val transactionResult = aTransactionResult()
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
 
         every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
         every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
         every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
         every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
         every { fireblocksClient.submitTransaction(match { it.sourceVaultId == "fb-vault-specific" }) } returns transactionResult
+        every { fundAllocationService.consume(any(), any()) } returns lockedAllocation
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
 
@@ -174,12 +188,15 @@ class TransactionSubmissionHandlerTest {
         val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString(), currency = "ETH", protocol = "ETH")
         val supportedAsset = aSupportedAsset(currency = "ETH", protocol = "ETH", fireblocksAssetId = "ETH_TEST5")
         val transactionResult = aTransactionResult()
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
 
         every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
         every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
         every { supportedAssetRepository.findByCurrencyAndProtocol("ETH", "ETH") } returns supportedAsset
         every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
         every { fireblocksClient.submitTransaction(match { it.assetId == "ETH_TEST5" }) } returns transactionResult
+        every { fundAllocationService.consume(any(), any()) } returns lockedAllocation
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
 
@@ -229,12 +246,15 @@ class TransactionSubmissionHandlerTest {
         val vault = aVault(id = VaultId(vaultId), status = VaultStatus.ACTIVE)
         val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
         val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
 
         every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
         every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
         every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
         every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
         every { fireblocksClient.submitTransaction(any()) } throws RuntimeException("Fireblocks unavailable")
+        every { fundAllocationService.release(any()) } returns lockedAllocation
         every { auditLogRepository.save(any()) } returnsArgument 0
 
         // when
@@ -266,12 +286,15 @@ class TransactionSubmissionHandlerTest {
         val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
         val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
         val transactionResult = aTransactionResult(id = "fb-tx-event-001")
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
 
         every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
         every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
         every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
         every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
         every { fireblocksClient.submitTransaction(any()) } returns transactionResult
+        every { fundAllocationService.consume(any(), any()) } returns lockedAllocation
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
 
@@ -298,12 +321,15 @@ class TransactionSubmissionHandlerTest {
         val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
         val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
         val transactionResult = aTransactionResult()
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
 
         every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
         every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
         every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
         every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
         every { fireblocksClient.submitTransaction(any()) } returns transactionResult
+        every { fundAllocationService.consume(any(), any()) } returns lockedAllocation
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
 
@@ -328,12 +354,15 @@ class TransactionSubmissionHandlerTest {
         val vault = aVault(id = VaultId(vaultId), status = VaultStatus.ACTIVE)
         val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
         val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
 
         every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
         every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
         every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
         every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
         every { fireblocksClient.submitTransaction(any()) } throws RuntimeException("Fireblocks error")
+        every { fundAllocationService.release(any()) } returns lockedAllocation
         every { auditLogRepository.save(any()) } returnsArgument 0
 
         // when
@@ -357,12 +386,15 @@ class TransactionSubmissionHandlerTest {
         val vault = aVault(id = VaultId(vaultId), status = VaultStatus.ACTIVE)
         val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
         val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
 
         every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
         every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
         every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
         every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
         every { fireblocksClient.submitTransaction(any()) } throws RuntimeException("Fireblocks error")
+        every { fundAllocationService.release(any()) } returns lockedAllocation
         every { auditLogRepository.save(any()) } returnsArgument 0
 
         // when
@@ -380,12 +412,15 @@ class TransactionSubmissionHandlerTest {
         val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString(), feeLevel = FeeLevel.HIGH)
         val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
         val transactionResult = aTransactionResult()
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
 
         every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
         every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
         every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
         every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
         every { fireblocksClient.submitTransaction(match { it.feeLevel == FeeLevel.HIGH }) } returns transactionResult
+        every { fundAllocationService.consume(any(), any()) } returns lockedAllocation
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
 
@@ -404,12 +439,15 @@ class TransactionSubmissionHandlerTest {
         val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString(), feeLevel = null)
         val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
         val transactionResult = aTransactionResult()
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
 
         every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
         every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
         every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
         every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
         every { fireblocksClient.submitTransaction(match { it.feeLevel == FeeLevel.MEDIUM }) } returns transactionResult
+        every { fundAllocationService.consume(any(), any()) } returns lockedAllocation
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
 
@@ -418,5 +456,118 @@ class TransactionSubmissionHandlerTest {
 
         // then
         verify { fireblocksClient.submitTransaction(match { it.feeLevel == FeeLevel.MEDIUM }) }
+    }
+
+    @Test
+    fun `should create allocation and lock before submission`() {
+        // given
+        val vaultId = UUID.randomUUID()
+        val vault = aVault(id = VaultId(vaultId), fireblocksVaultId = "fb-vault-001", status = VaultStatus.ACTIVE)
+        val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
+        val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
+        val transactionResult = aTransactionResult()
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED, fireblocksVaultId = "fb-vault-001")
+
+        every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
+        every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
+        every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
+        every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
+        every { fireblocksClient.submitTransaction(any()) } returns transactionResult
+        every { fundAllocationService.consume(any(), any()) } returns lockedAllocation
+        every { eventPublisher.publish(any()) } just runs
+        every { auditLogRepository.save(any()) } returnsArgument 0
+
+        // when
+        handler.handle(command)
+
+        // then
+        verify {
+            fundAllocationService.createAndLock(
+                match { it == "alloc-${command.externalTxId}" },
+                any(),
+                match { it == "fb-vault-001" },
+                any(),
+                any(),
+                any(),
+                any(),
+            )
+        }
+    }
+
+    @Test
+    fun `should mark transaction FAILED when allocation lock fails`() {
+        // given
+        val vaultId = UUID.randomUUID()
+        val vault = aVault(id = VaultId(vaultId), status = VaultStatus.ACTIVE)
+        val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
+        val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
+        val failedAllocation = aFundAllocation(status = AllocationStatus.FAILED)
+
+        every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
+        every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
+        every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
+        every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns failedAllocation
+        every { auditLogRepository.save(any()) } returnsArgument 0
+
+        // when
+        val result = handler.handle(command)
+
+        // then
+        assertThat(result.status).isEqualTo(TransactionStatus.FAILED)
+        verify(exactly = 0) { fireblocksClient.submitTransaction(any()) }
+    }
+
+    @Test
+    fun `should release allocation when transaction submission fails`() {
+        // given
+        val vaultId = UUID.randomUUID()
+        val vault = aVault(id = VaultId(vaultId), status = VaultStatus.ACTIVE)
+        val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
+        val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
+
+        every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
+        every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
+        every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
+        every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
+        every { fireblocksClient.submitTransaction(any()) } throws RuntimeException("Fireblocks down")
+        every { fundAllocationService.release(lockedAllocation.allocationId) } returns lockedAllocation
+        every { auditLogRepository.save(any()) } returnsArgument 0
+
+        // when
+        handler.handle(command)
+
+        // then
+        verify { fundAllocationService.release(lockedAllocation.allocationId) }
+    }
+
+    @Test
+    fun `should consume allocation after successful submission`() {
+        // given
+        val vaultId = UUID.randomUUID()
+        val vault = aVault(id = VaultId(vaultId), status = VaultStatus.ACTIVE)
+        val command = aSubmitTransactionCommand(sourceVaultId = vaultId.toString())
+        val supportedAsset = aSupportedAsset(currency = command.currency, protocol = command.protocol)
+        val transactionResult = aTransactionResult()
+        val lockedAllocation = aFundAllocation(status = AllocationStatus.LOCKED)
+
+        every { transactionRepository.findByExternalTxId(command.externalTxId) } returns null
+        every { vaultQueryService.getVault(VaultId(vaultId)) } returns vault
+        every { supportedAssetRepository.findByCurrencyAndProtocol(command.currency, command.protocol) } returns supportedAsset
+        every { transactionRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.createAndLock(any(), any(), any(), any(), any(), any(), any()) } returns lockedAllocation
+        every { fireblocksClient.submitTransaction(any()) } returns transactionResult
+        every { fundAllocationService.consume(any(), any()) } returns lockedAllocation
+        every { eventPublisher.publish(any()) } just runs
+        every { auditLogRepository.save(any()) } returnsArgument 0
+
+        // when
+        handler.handle(command)
+
+        // then
+        verify { fundAllocationService.consume(lockedAllocation.allocationId, any()) }
     }
 }

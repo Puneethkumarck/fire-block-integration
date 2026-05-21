@@ -4,6 +4,7 @@ import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
+import com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.stablecoin.custody.fireblocks.AbstractIntegrationTest
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
@@ -75,6 +76,15 @@ class TransactionSubmissionHandlerIntegrationTest : AbstractIntegrationTest() {
         // given
         val vault = createActiveVault()
         wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-int-001","status":"LOCKED"}"""),
+                ),
+        )
+        wireMock.stubFor(
             post(urlPathEqualTo("/v1/transactions"))
                 .willReturn(
                     aResponse()
@@ -102,6 +112,15 @@ class TransactionSubmissionHandlerIntegrationTest : AbstractIntegrationTest() {
     fun `should handle idempotent submission`() {
         // given
         val vault = createActiveVault()
+        wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-int-002","status":"LOCKED"}"""),
+                ),
+        )
         wireMock.stubFor(
             post(urlPathEqualTo("/v1/transactions"))
                 .willReturn(
@@ -132,6 +151,15 @@ class TransactionSubmissionHandlerIntegrationTest : AbstractIntegrationTest() {
         // given
         val vault = createActiveVault()
         wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-int-003","status":"LOCKED"}"""),
+                ),
+        )
+        wireMock.stubFor(
             post(urlPathEqualTo("/v1/transactions"))
                 .willReturn(
                     aResponse()
@@ -161,6 +189,22 @@ class TransactionSubmissionHandlerIntegrationTest : AbstractIntegrationTest() {
     fun `should handle Fireblocks error and mark FAILED`() {
         // given
         val vault = createActiveVault()
+        wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-int-004","status":"LOCKED"}"""),
+                ),
+        )
+        wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/release_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200),
+                ),
+        )
         wireMock.stubFor(
             post(urlPathEqualTo("/v1/transactions"))
                 .willReturn(

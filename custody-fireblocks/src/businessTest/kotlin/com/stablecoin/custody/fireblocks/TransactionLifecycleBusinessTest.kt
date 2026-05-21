@@ -5,6 +5,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
+import com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching
 import com.jayway.jsonpath.JsonPath
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import com.stablecoin.custody.fireblocks.domain.event.TransactionStatusChangedEvent
@@ -111,6 +112,15 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
         externalTxId: String,
         fireblocksTxId: String,
     ): String {
+        wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-biz-001","status":"LOCKED"}"""),
+                ),
+        )
         wireMock.stubFor(
             post(urlPathEqualTo("/v1/transactions"))
                 .willReturn(
@@ -258,6 +268,13 @@ class TransactionLifecycleBusinessTest : AbstractBusinessTest() {
         val externalTxId = "ext-fail-${UUID.randomUUID()}"
         val fireblocksTxId = "fb-fail-001"
         submitTransaction(externalTxId, fireblocksTxId)
+        wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/release_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200),
+                ),
+        )
 
         // when
         simulateWebhook(fireblocksTxId, "FAILED")

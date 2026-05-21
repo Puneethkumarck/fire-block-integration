@@ -42,6 +42,17 @@ class TransactionControllerIntegrationTest : AbstractMockMvcIntegrationTest() {
         val externalTxId = "int-ext-${UUID.randomUUID()}"
         wireMock.stubFor(
             WireMock
+                .post(WireMock.urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    WireMock
+                        .aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-001","status":"LOCKED"}"""),
+                ),
+        )
+        wireMock.stubFor(
+            WireMock
                 .post(WireMock.urlPathEqualTo("/v1/transactions"))
                 .willReturn(
                     WireMock
@@ -122,6 +133,17 @@ class TransactionControllerIntegrationTest : AbstractMockMvcIntegrationTest() {
         // given
         val vault = vaultRepository.save(aVault(fireblocksVaultId = "fb-dup-001"))
         val externalTxId = "ext-dup-${UUID.randomUUID()}"
+        wireMock.stubFor(
+            WireMock
+                .post(WireMock.urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    WireMock
+                        .aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-dup-001","status":"LOCKED"}"""),
+                ),
+        )
         wireMock.stubFor(
             WireMock
                 .post(WireMock.urlPathEqualTo("/v1/transactions"))

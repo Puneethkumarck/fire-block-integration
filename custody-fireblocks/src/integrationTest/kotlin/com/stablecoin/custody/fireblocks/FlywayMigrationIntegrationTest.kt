@@ -34,6 +34,7 @@ class FlywayMigrationIntegrationTest : AbstractIntegrationTest() {
             "custody_outbox_record",
             "deposit_addresses",
             "flyway_schema_history",
+            "fund_allocations",
             "shedlock",
             "supported_assets",
             "transactions",

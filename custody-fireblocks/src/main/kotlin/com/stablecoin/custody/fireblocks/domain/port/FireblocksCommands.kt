@@ -20,3 +20,16 @@ data class FireblocksEstimateFeeCommand(
     val assetId: String,
     val amount: BigDecimal,
 )
+
+data class LockAllocationCommand(
+    val allocationId: String,
+    val vaultAccountId: String,
+    val assetId: String,
+    val amount: BigDecimal,
+)
+
+data class ReleaseAllocationCommand(
+    val allocationId: String,
+    val vaultAccountId: String,
+    val assetId: String,
+)
