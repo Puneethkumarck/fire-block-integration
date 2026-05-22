@@ -12,7 +12,7 @@ class ReconciliationBreakEventOutboxPublisher(
     outbox: Outbox,
 ) : AbstractOutboxEventPublisher(outbox, listOf("vaultId")),
     EventPublisher<ReconciliationBreakDetectedEvent> {
-    @Transactional(propagation = Propagation.REQUIRED)
+    @Transactional(propagation = Propagation.MANDATORY)
     override fun publish(event: ReconciliationBreakDetectedEvent) {
         schedule(event)
     }

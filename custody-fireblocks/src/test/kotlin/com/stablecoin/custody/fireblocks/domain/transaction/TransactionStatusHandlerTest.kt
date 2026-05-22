@@ -102,7 +102,9 @@ class TransactionStatusHandlerTest {
         every { transactionRepository.save(any()) } returnsArgument 0
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
-        every { internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(any(), any(), any()) } returns null
+        every {
+            internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(vaultId, transaction.currency, transaction.protocol)
+        } returns null
         every { internalBalanceRepository.save(any()) } returnsArgument 0
 
         // when
@@ -300,7 +302,9 @@ class TransactionStatusHandlerTest {
         every { transactionRepository.save(any()) } returnsArgument 0
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
-        every { internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(any(), any(), any()) } returns null
+        every {
+            internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(vaultId, transaction.currency, transaction.protocol)
+        } returns null
         every { internalBalanceRepository.save(any()) } returnsArgument 0
 
         // when

@@ -1,15 +1,11 @@
 package com.stablecoin.custody.fireblocks.infrastructure.scheduling
 
-import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
-import com.stablecoin.custody.fireblocks.domain.event.ReconciliationBreakDetectedEvent
 import com.stablecoin.custody.fireblocks.domain.exception.FireblocksApiException
 import com.stablecoin.custody.fireblocks.domain.port.BalanceResult
-import com.stablecoin.custody.fireblocks.domain.port.EventPublisher
 import com.stablecoin.custody.fireblocks.domain.port.FireblocksBalancePort
 import com.stablecoin.custody.fireblocks.domain.reconciliation.BalanceReconciliationService
 import com.stablecoin.custody.fireblocks.domain.reconciliation.InternalBalanceRepository
-import com.stablecoin.custody.fireblocks.domain.reconciliation.ReconciliationResultRepository
-import com.stablecoin.custody.fireblocks.domain.reconciliation.ReconciliationStatus
+import com.stablecoin.custody.fireblocks.domain.reconciliation.ReconciliationResult
 import com.stablecoin.custody.fireblocks.domain.vault.VaultRepository
 import com.stablecoin.custody.fireblocks.domain.wallet.WalletAssetRepository
 import com.stablecoin.custody.fireblocks.test.fixtures.aVault
@@ -25,22 +21,22 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.math.BigDecimal
 
+private val BTC_TOLERANCE = BigDecimal("0.00001")
+private val DEFAULT_TOLERANCE = BigDecimal("0.01")
+
 @ExtendWith(MockKExtension::class)
 class BalanceReconciliationJobTest {
-    private val reconciliationService = BalanceReconciliationService()
+    private val reconciliationService: BalanceReconciliationService = mockk()
     private val vaultRepository: VaultRepository = mockk()
     private val walletAssetRepository: WalletAssetRepository = mockk()
     private val internalBalanceRepository: InternalBalanceRepository = mockk()
-    private val reconciliationResultRepository: ReconciliationResultRepository = mockk()
     private val fireblocksBalancePort: FireblocksBalancePort = mockk()
-    private val auditLogRepository: AuditLogRepository = mockk()
-    private val breakEventPublisher: EventPublisher<ReconciliationBreakDetectedEvent> = mockk()
     private val properties =
         ReconciliationProperties(
             enabled = true,
             interval = 900000,
-            defaultTolerance = BigDecimal("0.01"),
-            tolerances = mapOf("BTC" to BigDecimal("0.00001")),
+            defaultTolerance = DEFAULT_TOLERANCE,
+            tolerances = mapOf("BTC" to BTC_TOLERANCE),
         )
 
     private val job =
@@ -49,10 +45,7 @@ class BalanceReconciliationJobTest {
             vaultRepository,
             walletAssetRepository,
             internalBalanceRepository,
-            reconciliationResultRepository,
             fireblocksBalancePort,
-            auditLogRepository,
-            breakEventPublisher,
             properties,
         )
 
@@ -63,6 +56,7 @@ class BalanceReconciliationJobTest {
         val asset = aWalletAsset(vaultId = vault.id)
         val internalBalance = anInternalBalance(vaultId = vault.id.value, currency = asset.currency, protocol = asset.protocol)
         val balanceResult = aBalanceResult(BigDecimal("1000.00"))
+        val matchedResult = mockk<ReconciliationResult>()
 
         every { vaultRepository.findAllActive() } returns listOf(vault)
         every { walletAssetRepository.findByVaultId(vault.id) } returns listOf(asset)
@@ -70,8 +64,8 @@ class BalanceReconciliationJobTest {
             internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(vault.id.value, asset.currency, asset.protocol)
         } returns internalBalance
         every { fireblocksBalancePort.getBalance("fb-vault-1", asset.fireblocksAssetId, true) } returns balanceResult
-        every { reconciliationResultRepository.save(any()) } returnsArgument 0
-        every { auditLogRepository.save(any()) } returnsArgument 0
+        every { reconciliationService.reconcile(internalBalance, balanceResult.available, BTC_TOLERANCE) } returns matchedResult
+        every { reconciliationService.persistResult(matchedResult) } just runs
 
         // when
         job.reconcileBalances()
@@ -79,7 +73,7 @@ class BalanceReconciliationJobTest {
         // then
         verify { vaultRepository.findAllActive() }
         verify { walletAssetRepository.findByVaultId(vault.id) }
-        verify { reconciliationResultRepository.save(any()) }
+        verify { reconciliationService.persistResult(matchedResult) }
     }
 
     @Test
@@ -95,17 +89,21 @@ class BalanceReconciliationJobTest {
             internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(vault.id.value, asset.currency, asset.protocol)
         } returns null
         every { fireblocksBalancePort.getBalance("fb-vault-seed", asset.fireblocksAssetId, true) } returns balanceResult
-        every { internalBalanceRepository.save(any()) } returnsArgument 0
-        every { reconciliationResultRepository.save(any()) } returnsArgument 0
-        every { auditLogRepository.save(any()) } returnsArgument 0
+        every {
+            reconciliationService.seedAndPersist(vault.id.value, asset.currency, asset.protocol, BigDecimal("500.00"), BTC_TOLERANCE)
+        } just runs
 
         // when
         job.reconcileBalances()
 
         // then
         verify {
-            internalBalanceRepository.save(
-                match { it.balance == BigDecimal("500.00") && it.vaultId == vault.id.value },
+            reconciliationService.seedAndPersist(
+                vault.id.value,
+                asset.currency,
+                asset.protocol,
+                BigDecimal("500.00"),
+                BTC_TOLERANCE,
             )
         }
     }
@@ -116,6 +114,7 @@ class BalanceReconciliationJobTest {
         val vault = aVault(fireblocksVaultId = "fb-vault-fail")
         val asset = aWalletAsset(vaultId = vault.id)
         val internalBalance = anInternalBalance(vaultId = vault.id.value, currency = asset.currency, protocol = asset.protocol)
+        val partialResult = mockk<ReconciliationResult>()
 
         every { vaultRepository.findAllActive() } returns listOf(vault)
         every { walletAssetRepository.findByVaultId(vault.id) } returns listOf(asset)
@@ -125,22 +124,35 @@ class BalanceReconciliationJobTest {
         every {
             fireblocksBalancePort.getBalance("fb-vault-fail", asset.fireblocksAssetId, true)
         } throws FireblocksApiException("API error")
-        every { reconciliationResultRepository.save(any()) } returnsArgument 0
-        every { auditLogRepository.save(any()) } returnsArgument 0
+        every {
+            reconciliationService.createPartialResult(
+                vault.id.value,
+                asset.currency,
+                asset.protocol,
+                internalBalance.balance,
+                BTC_TOLERANCE,
+            )
+        } returns partialResult
+        every { reconciliationService.persistResult(partialResult) } just runs
 
         // when
         job.reconcileBalances()
 
         // then
         verify {
-            reconciliationResultRepository.save(
-                match { it.status == ReconciliationStatus.PARTIAL },
+            reconciliationService.createPartialResult(
+                vault.id.value,
+                asset.currency,
+                asset.protocol,
+                internalBalance.balance,
+                BTC_TOLERANCE,
             )
         }
+        verify { reconciliationService.persistResult(partialResult) }
     }
 
     @Test
-    fun `should publish break event on MISMATCHED`() {
+    fun `should delegate persistence to service for MISMATCHED result`() {
         // given
         val vault = aVault(fireblocksVaultId = "fb-vault-break")
         val asset = aWalletAsset(vaultId = vault.id)
@@ -152,6 +164,7 @@ class BalanceReconciliationJobTest {
                 balance = BigDecimal("1000.00"),
             )
         val balanceResult = aBalanceResult(BigDecimal("900.00"))
+        val mismatchedResult = mockk<ReconciliationResult>()
 
         every { vaultRepository.findAllActive() } returns listOf(vault)
         every { walletAssetRepository.findByVaultId(vault.id) } returns listOf(asset)
@@ -159,19 +172,16 @@ class BalanceReconciliationJobTest {
             internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(vault.id.value, asset.currency, asset.protocol)
         } returns internalBalance
         every { fireblocksBalancePort.getBalance("fb-vault-break", asset.fireblocksAssetId, true) } returns balanceResult
-        every { reconciliationResultRepository.save(any()) } returnsArgument 0
-        every { auditLogRepository.save(any()) } returnsArgument 0
-        every { breakEventPublisher.publish(any()) } just runs
+        every {
+            reconciliationService.reconcile(internalBalance, balanceResult.available, BTC_TOLERANCE)
+        } returns mismatchedResult
+        every { reconciliationService.persistResult(mismatchedResult) } just runs
 
         // when
         job.reconcileBalances()
 
         // then
-        verify {
-            breakEventPublisher.publish(
-                match { it.vaultId == vault.id.value && it.drift.compareTo(BigDecimal("-100.00")) == 0 },
-            )
-        }
+        verify { reconciliationService.persistResult(mismatchedResult) }
     }
 
     @Test
@@ -188,6 +198,7 @@ class BalanceReconciliationJobTest {
                 balance = BigDecimal("100.00"),
             )
         val balanceResult = aBalanceResult(BigDecimal("100.00"))
+        val matchedResult = mockk<ReconciliationResult>()
 
         every { vaultRepository.findAllActive() } returns listOf(vault)
         every { walletAssetRepository.findByVaultId(vault.id) } returns listOf(asset1, asset2)
@@ -198,18 +209,14 @@ class BalanceReconciliationJobTest {
             internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(vault.id.value, "ETH", "ETH")
         } returns internalBalance2
         every { fireblocksBalancePort.getBalance("fb-vault-multi", "ETH", true) } returns balanceResult
-        every { reconciliationResultRepository.save(any()) } returnsArgument 0
-        every { auditLogRepository.save(any()) } returnsArgument 0
+        every { reconciliationService.reconcile(internalBalance2, balanceResult.available, DEFAULT_TOLERANCE) } returns matchedResult
+        every { reconciliationService.persistResult(matchedResult) } just runs
 
         // when
         job.reconcileBalances()
 
         // then
-        verify {
-            reconciliationResultRepository.save(
-                match { it.currency == "ETH" && it.status == ReconciliationStatus.MATCHED },
-            )
-        }
+        verify { reconciliationService.persistResult(matchedResult) }
     }
 
     @Test
@@ -222,10 +229,7 @@ class BalanceReconciliationJobTest {
                 vaultRepository,
                 walletAssetRepository,
                 internalBalanceRepository,
-                reconciliationResultRepository,
                 fireblocksBalancePort,
-                auditLogRepository,
-                breakEventPublisher,
                 disabledProperties,
             )
 
