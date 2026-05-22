@@ -7,11 +7,15 @@ import com.stablecoin.custody.fireblocks.domain.audit.AuditOperation
 import com.stablecoin.custody.fireblocks.domain.audit.AuditStatus
 import com.stablecoin.custody.fireblocks.domain.event.TransactionStatusChangedEvent
 import com.stablecoin.custody.fireblocks.domain.port.EventPublisher
+import com.stablecoin.custody.fireblocks.domain.reconciliation.InternalBalance
+import com.stablecoin.custody.fireblocks.domain.reconciliation.InternalBalanceRepository
 import com.stablecoin.custody.fireblocks.domain.shared.StateMachine
 import com.stablecoin.custody.fireblocks.domain.shared.logger
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.math.BigDecimal
 import java.time.Instant
+import java.util.UUID
 
 private val log = logger<TransactionStatusHandler>()
 
@@ -22,6 +26,7 @@ class TransactionStatusHandler(
     private val auditLogRepository: AuditLogRepository,
     private val stateMachine: StateMachine<TransactionStatus, Transaction>,
     private val fundAllocationService: FundAllocationService,
+    private val internalBalanceRepository: InternalBalanceRepository,
 ) {
     @Transactional
     fun handleStatusUpdate(
@@ -62,6 +67,10 @@ class TransactionStatusHandler(
             fundAllocationService.releaseByTransactionId(result.id.value)
         }
 
+        if (newStatus == TransactionStatus.CONFIRMED) {
+            debitInternalBalance(result)
+        }
+
         eventPublisher.publish(
             TransactionStatusChangedEvent(
                 transactionId = result.id.value,
@@ -91,5 +100,39 @@ class TransactionStatusHandler(
         )
 
         log.info("Updated transaction {} status: {} -> {}", fireblocksTxId, previousStatus, newStatus)
+    }
+
+    private fun debitInternalBalance(transaction: Transaction) {
+        val vaultId = UUID.fromString(transaction.sourceVaultId)
+        val existing =
+            internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(
+                vaultId,
+                transaction.currency,
+                transaction.protocol,
+            )
+
+        val updated =
+            if (existing != null) {
+                existing.debit(transaction.amount, transaction.id.value)
+            } else {
+                InternalBalance(
+                    id = UUID.randomUUID(),
+                    vaultId = vaultId,
+                    currency = transaction.currency,
+                    protocol = transaction.protocol,
+                    balance = BigDecimal.ZERO.subtract(transaction.amount),
+                    lastTransactionId = transaction.id.value,
+                    updatedAt = Instant.now(),
+                )
+            }
+
+        internalBalanceRepository.save(updated)
+        log.info(
+            "Debited internal balance for vault={} asset={}/{} amount={}",
+            vaultId,
+            transaction.currency,
+            transaction.protocol,
+            transaction.amount,
+        )
     }
 }

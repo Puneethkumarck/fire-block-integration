@@ -128,3 +128,11 @@ custody:
   polling:
     interval: 120000
     vault-interval: 120000
+  reconciliation:
+    enabled: true
+    interval: 900000
+    default-tolerance: "0.01"
+    tolerances:
+      BTC: "0.00001"
+      ETH: "0.0001"
+      EURC: "0.01"

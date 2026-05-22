@@ -7,8 +7,10 @@ import com.stablecoin.custody.fireblocks.domain.audit.AuditStatus
 import com.stablecoin.custody.fireblocks.domain.event.TransactionStatusChangedEvent
 import com.stablecoin.custody.fireblocks.domain.exception.InvalidTransactionStateException
 import com.stablecoin.custody.fireblocks.domain.port.EventPublisher
+import com.stablecoin.custody.fireblocks.domain.reconciliation.InternalBalanceRepository
 import com.stablecoin.custody.fireblocks.domain.shared.StateMachine
 import com.stablecoin.custody.fireblocks.test.fixtures.aTransaction
+import com.stablecoin.custody.fireblocks.test.fixtures.anInternalBalance
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.just
@@ -18,6 +20,8 @@ import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.math.BigDecimal
+import java.util.UUID
 
 @ExtendWith(MockKExtension::class)
 class TransactionStatusHandlerTest {
@@ -26,6 +30,7 @@ class TransactionStatusHandlerTest {
     private val auditLogRepository: AuditLogRepository = mockk()
     private val stateMachine: StateMachine<TransactionStatus, Transaction> = mockk()
     private val fundAllocationService: FundAllocationService = mockk()
+    private val internalBalanceRepository: InternalBalanceRepository = mockk()
 
     private val handler =
         TransactionStatusHandler(
@@ -34,6 +39,7 @@ class TransactionStatusHandlerTest {
             auditLogRepository,
             stateMachine,
             fundAllocationService,
+            internalBalanceRepository,
         )
 
     @Test
@@ -83,13 +89,23 @@ class TransactionStatusHandlerTest {
     @Test
     fun `should update transaction status from CONFIRMING to CONFIRMED`() {
         // given
-        val transaction = aTransaction(status = TransactionStatus.CONFIRMING, fireblocksTransactionId = "fb-tx-003")
+        val vaultId = UUID.randomUUID()
+        val transaction =
+            aTransaction(
+                status = TransactionStatus.CONFIRMING,
+                fireblocksTransactionId = "fb-tx-003",
+                sourceVaultId = vaultId.toString(),
+            )
         every { transactionRepository.findByFireblocksTransactionId("fb-tx-003") } returns transaction
         every { stateMachine.transition(transaction, TransactionStatus.CONFIRMED) } returns TransactionStatus.CONFIRMED
         every { transactionRepository.findByIdForUpdate(transaction.id) } returns transaction
         every { transactionRepository.save(any()) } returnsArgument 0
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
+        every {
+            internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(vaultId, transaction.currency, transaction.protocol)
+        } returns null
+        every { internalBalanceRepository.save(any()) } returnsArgument 0
 
         // when
         handler.handleStatusUpdate("fb-tx-003", "COMPLETED", null, "0xfinalhash")
@@ -273,18 +289,130 @@ class TransactionStatusHandlerTest {
     @Test
     fun `should not release allocation when non-FAILED terminal status received`() {
         // given
-        val transaction = aTransaction(status = TransactionStatus.CONFIRMING, fireblocksTransactionId = "fb-tx-confirm")
+        val vaultId = UUID.randomUUID()
+        val transaction =
+            aTransaction(
+                status = TransactionStatus.CONFIRMING,
+                fireblocksTransactionId = "fb-tx-confirm",
+                sourceVaultId = vaultId.toString(),
+            )
         every { transactionRepository.findByFireblocksTransactionId("fb-tx-confirm") } returns transaction
         every { stateMachine.transition(transaction, TransactionStatus.CONFIRMED) } returns TransactionStatus.CONFIRMED
         every { transactionRepository.findByIdForUpdate(transaction.id) } returns transaction
         every { transactionRepository.save(any()) } returnsArgument 0
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
+        every {
+            internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(vaultId, transaction.currency, transaction.protocol)
+        } returns null
+        every { internalBalanceRepository.save(any()) } returnsArgument 0
 
         // when
         handler.handleStatusUpdate("fb-tx-confirm", "COMPLETED", null, "0xhash")
 
         // then
         verify(exactly = 0) { fundAllocationService.releaseByTransactionId(any()) }
+    }
+
+    @Test
+    fun `should debit internal balance on CONFIRMED status`() {
+        // given
+        val vaultId = UUID.randomUUID()
+        val transaction =
+            aTransaction(
+                status = TransactionStatus.CONFIRMING,
+                fireblocksTransactionId = "fb-tx-debit",
+                sourceVaultId = vaultId.toString(),
+                amount = BigDecimal("50.00"),
+                currency = "EURC",
+                protocol = "ETH",
+            )
+        val existingBalance =
+            anInternalBalance(
+                vaultId = vaultId,
+                currency = "EURC",
+                protocol = "ETH",
+                balance = BigDecimal("1000.00"),
+            )
+        every { transactionRepository.findByFireblocksTransactionId("fb-tx-debit") } returns transaction
+        every { stateMachine.transition(transaction, TransactionStatus.CONFIRMED) } returns TransactionStatus.CONFIRMED
+        every { transactionRepository.findByIdForUpdate(transaction.id) } returns transaction
+        every { transactionRepository.save(any()) } returnsArgument 0
+        every { eventPublisher.publish(any()) } just runs
+        every { auditLogRepository.save(any()) } returnsArgument 0
+        every {
+            internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(vaultId, "EURC", "ETH")
+        } returns existingBalance
+        every { internalBalanceRepository.save(any()) } returnsArgument 0
+
+        // when
+        handler.handleStatusUpdate("fb-tx-debit", "COMPLETED", null, "0xhash")
+
+        // then
+        verify {
+            internalBalanceRepository.save(
+                match { it.balance == BigDecimal("950.00") && it.lastTransactionId == transaction.id.value },
+            )
+        }
+    }
+
+    @Test
+    fun `should create internal balance with negative amount if none exists on CONFIRMED status`() {
+        // given
+        val vaultId = UUID.randomUUID()
+        val transaction =
+            aTransaction(
+                status = TransactionStatus.CONFIRMING,
+                fireblocksTransactionId = "fb-tx-new-bal",
+                sourceVaultId = vaultId.toString(),
+                amount = BigDecimal("100.00"),
+                currency = "BTC",
+                protocol = "BTC",
+            )
+        every { transactionRepository.findByFireblocksTransactionId("fb-tx-new-bal") } returns transaction
+        every { stateMachine.transition(transaction, TransactionStatus.CONFIRMED) } returns TransactionStatus.CONFIRMED
+        every { transactionRepository.findByIdForUpdate(transaction.id) } returns transaction
+        every { transactionRepository.save(any()) } returnsArgument 0
+        every { eventPublisher.publish(any()) } just runs
+        every { auditLogRepository.save(any()) } returnsArgument 0
+        every {
+            internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(vaultId, "BTC", "BTC")
+        } returns null
+        every { internalBalanceRepository.save(any()) } returnsArgument 0
+
+        // when
+        handler.handleStatusUpdate("fb-tx-new-bal", "COMPLETED", null, "0xhash")
+
+        // then
+        verify {
+            internalBalanceRepository.save(
+                match {
+                    it.balance.compareTo(BigDecimal("-100.00")) == 0 &&
+                        it.vaultId == vaultId &&
+                        it.currency == "BTC" &&
+                        it.protocol == "BTC"
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `should not modify internal balance on FAILED status`() {
+        // given
+        val transaction = aTransaction(status = TransactionStatus.PROCESSING, fireblocksTransactionId = "fb-tx-fail-bal")
+        every { transactionRepository.findByFireblocksTransactionId("fb-tx-fail-bal") } returns transaction
+        every { stateMachine.transition(transaction, TransactionStatus.FAILED) } returns TransactionStatus.FAILED
+        every { transactionRepository.findByIdForUpdate(transaction.id) } returns transaction
+        every { transactionRepository.save(any()) } returnsArgument 0
+        every { eventPublisher.publish(any()) } just runs
+        every { auditLogRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.releaseByTransactionId(any()) } just runs
+
+        // when
+        handler.handleStatusUpdate("fb-tx-fail-bal", "FAILED", null, null)
+
+        // then
+        verify(exactly = 0) { internalBalanceRepository.findByVaultIdAndCurrencyAndProtocol(any(), any(), any()) }
+        verify(exactly = 0) { internalBalanceRepository.save(any()) }
     }
 }

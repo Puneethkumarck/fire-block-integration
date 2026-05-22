@@ -24,6 +24,11 @@ internal class WalletAssetRepositoryAdapter(
 
     override fun save(walletAsset: WalletAsset): WalletAsset = walletAsset.toEntity().let { jpaRepository.saveAndFlush(it) }.toDomain()
 
+    override fun findByVaultId(vaultId: VaultId): List<WalletAsset> =
+        jpaRepository
+            .findByVaultId(vaultId.value)
+            .map { it.toDomain() }
+
     fun WalletAsset.toEntity() =
         WalletAssetEntity(
             id = id.value,

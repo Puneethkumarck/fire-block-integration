@@ -16,4 +16,6 @@ internal interface VaultJpaRepository : JpaRepository<VaultEntity, UUID> {
         cutoff: Instant,
         pageable: Pageable,
     ): List<VaultEntity>
+
+    fun findByStatus(status: VaultStatus): List<VaultEntity>
 }
