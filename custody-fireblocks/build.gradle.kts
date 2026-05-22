@@ -42,7 +42,7 @@ val businessTestRuntimeOnly by configurations.getting {
 
 dependencies {
     implementation(project(":custody-fireblocks-api"))
-    implementation(platform("org.testcontainers:testcontainers-bom:1.21.4"))
+    implementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -80,7 +80,7 @@ dependencies {
     testFixturesImplementation("org.springframework.boot:spring-boot-starter-test") {
         exclude(group = "org.mockito")
     }
-    testFixturesImplementation(platform("org.testcontainers:testcontainers-bom:1.21.4"))
+    testFixturesImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
     testFixturesImplementation("org.testcontainers:postgresql")
     testFixturesImplementation("org.testcontainers:kafka")
     testFixturesImplementation("org.testcontainers:localstack")
