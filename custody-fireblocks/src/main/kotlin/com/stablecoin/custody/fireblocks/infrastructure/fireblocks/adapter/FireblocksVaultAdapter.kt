@@ -1,7 +1,10 @@
 package com.stablecoin.custody.fireblocks.infrastructure.fireblocks.adapter
 
+import com.stablecoin.custody.fireblocks.domain.port.AllocationResult
 import com.stablecoin.custody.fireblocks.domain.port.DepositAddressResult
 import com.stablecoin.custody.fireblocks.domain.port.FireblocksVaultPort
+import com.stablecoin.custody.fireblocks.domain.port.LockAllocationCommand
+import com.stablecoin.custody.fireblocks.domain.port.ReleaseAllocationCommand
 import com.stablecoin.custody.fireblocks.domain.port.VaultResult
 import com.stablecoin.custody.fireblocks.domain.port.WalletAssetResult
 import com.stablecoin.custody.fireblocks.domain.shared.logger
@@ -10,6 +13,9 @@ import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.Cr
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksDepositAddressResponse
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksVaultAccountResponse
 import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.FireblocksWalletAssetResponse
+import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.LockAllocationRequest
+import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.LockAllocationResponse
+import com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto.ReleaseAllocationRequest
 import io.github.resilience4j.bulkhead.annotation.Bulkhead
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import io.github.resilience4j.retry.annotation.Retry
@@ -63,6 +69,36 @@ internal class FireblocksVaultAdapter(
         return response.toDepositAddressResult()
     }
 
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    override fun lockAllocation(command: LockAllocationCommand): AllocationResult {
+        log.info("Locking allocation: allocationId={}, vaultAccountId={}", command.allocationId, command.vaultAccountId)
+        val response =
+            vaultClient.lockAllocation(
+                command.vaultAccountId,
+                LockAllocationRequest(
+                    allocationId = command.allocationId,
+                    assetId = command.assetId,
+                    amount = command.amount,
+                ),
+            )
+        return response.toAllocationResult()
+    }
+
+    @Bulkhead(name = "fireblocks")
+    @CircuitBreaker(name = "fireblocks")
+    @Retry(name = "fireblocks")
+    override fun releaseAllocation(command: ReleaseAllocationCommand) {
+        log.info("Releasing allocation: allocationId={}, vaultAccountId={}", command.allocationId, command.vaultAccountId)
+        vaultClient.releaseAllocation(
+            command.vaultAccountId,
+            ReleaseAllocationRequest(
+                allocationId = command.allocationId,
+                assetId = command.assetId,
+            ),
+        )
+    }
+
     fun FireblocksVaultAccountResponse.toVaultResult() =
         VaultResult(
             id = id,
@@ -80,5 +116,11 @@ internal class FireblocksVaultAdapter(
             address = address,
             tag = tag,
             legacyAddress = legacyAddress,
+        )
+
+    fun LockAllocationResponse.toAllocationResult() =
+        AllocationResult(
+            id = id,
+            status = status,
         )
 }

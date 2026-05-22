@@ -1,6 +1,7 @@
 package com.stablecoin.custody.fireblocks.application.controller
 
 import com.github.tomakehurst.wiremock.client.WireMock
+import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.stablecoin.custody.fireblocks.AbstractMockMvcIntegrationTest
 import com.stablecoin.custody.fireblocks.domain.transaction.TransactionRepository
 import com.stablecoin.custody.fireblocks.domain.vault.VaultRepository
@@ -40,6 +41,17 @@ class TransactionControllerIntegrationTest : AbstractMockMvcIntegrationTest() {
         // given
         val vault = vaultRepository.save(aVault(fireblocksVaultId = "fb-tx-int-001"))
         val externalTxId = "int-ext-${UUID.randomUUID()}"
+        wireMock.stubFor(
+            WireMock
+                .post(WireMock.urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    WireMock
+                        .aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-001","status":"LOCKED"}"""),
+                ),
+        )
         wireMock.stubFor(
             WireMock
                 .post(WireMock.urlPathEqualTo("/v1/transactions"))
@@ -124,6 +136,17 @@ class TransactionControllerIntegrationTest : AbstractMockMvcIntegrationTest() {
         val externalTxId = "ext-dup-${UUID.randomUUID()}"
         wireMock.stubFor(
             WireMock
+                .post(WireMock.urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    WireMock
+                        .aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-dup-001","status":"LOCKED"}"""),
+                ),
+        )
+        wireMock.stubFor(
+            WireMock
                 .post(WireMock.urlPathEqualTo("/v1/transactions"))
                 .willReturn(
                     WireMock
@@ -153,6 +176,9 @@ class TransactionControllerIntegrationTest : AbstractMockMvcIntegrationTest() {
                     .content(submitTransactionJson(externalTxId, vault.id.value)),
             ).andExpect(status().isCreated)
             .andExpect(jsonPath("$.externalTxId").value(externalTxId))
+
+        wireMock.verify(1, postRequestedFor(WireMock.urlPathMatching("/v1/vault/accounts/.+/lock_allocation")))
+        wireMock.verify(1, postRequestedFor(WireMock.urlPathEqualTo("/v1/transactions")))
     }
 
     @Test

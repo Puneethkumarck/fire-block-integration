@@ -17,4 +17,8 @@ interface FireblocksVaultPort {
         vaultAccountId: String,
         assetId: String,
     ): DepositAddressResult
+
+    fun lockAllocation(command: LockAllocationCommand): AllocationResult
+
+    fun releaseAllocation(command: ReleaseAllocationCommand)
 }

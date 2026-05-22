@@ -1,5 +1,6 @@
 package com.stablecoin.custody.fireblocks.domain.transaction
 
+import com.stablecoin.custody.fireblocks.domain.allocation.FundAllocationService
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLog
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import com.stablecoin.custody.fireblocks.domain.audit.AuditOperation
@@ -20,6 +21,7 @@ class TransactionStatusHandler(
     private val eventPublisher: EventPublisher<TransactionStatusChangedEvent>,
     private val auditLogRepository: AuditLogRepository,
     private val stateMachine: StateMachine<TransactionStatus, Transaction>,
+    private val fundAllocationService: FundAllocationService,
 ) {
     @Transactional
     fun handleStatusUpdate(
@@ -55,6 +57,10 @@ class TransactionStatusHandler(
         val previousStatus = locked.status
         val updated = locked.updateStatus(newStatus, fireblocksStatus, subStatus, txHash)
         val result = transactionRepository.save(updated)
+
+        if (newStatus == TransactionStatus.FAILED) {
+            fundAllocationService.releaseByTransactionId(result.id.value)
+        }
 
         eventPublisher.publish(
             TransactionStatusChangedEvent(

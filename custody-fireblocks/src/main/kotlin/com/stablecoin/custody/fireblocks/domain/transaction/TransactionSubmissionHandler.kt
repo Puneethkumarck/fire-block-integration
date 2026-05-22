@@ -1,5 +1,7 @@
 package com.stablecoin.custody.fireblocks.domain.transaction
 
+import com.stablecoin.custody.fireblocks.domain.allocation.AllocationStatus
+import com.stablecoin.custody.fireblocks.domain.allocation.FundAllocationService
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLog
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import com.stablecoin.custody.fireblocks.domain.audit.AuditOperation
@@ -28,6 +30,7 @@ class TransactionSubmissionHandler(
     private val fireblocksClient: FireblocksTransactionPort,
     private val eventPublisher: EventPublisher<TransactionStatusChangedEvent>,
     private val auditLogRepository: AuditLogRepository,
+    private val fundAllocationService: FundAllocationService,
 ) {
     @Transactional
     fun handle(command: SubmitTransactionCommand): Transaction {
@@ -52,8 +55,38 @@ class TransactionSubmissionHandler(
             vault.fireblocksVaultId
                 ?: throw IllegalStateException("Active vault ${vault.id} has no fireblocksVaultId")
 
-        return try {
-            val fireblocksResult =
+        val allocation =
+            fundAllocationService.createAndLock(
+                allocationId = "alloc-${command.externalTxId}",
+                vaultId = vault.id.value,
+                fireblocksVaultId = fireblocksVaultId,
+                assetId = supportedAsset.fireblocksAssetId,
+                currency = command.currency,
+                protocol = command.protocol,
+                amount = command.amount,
+            )
+
+        if (allocation.status == AllocationStatus.FAILED) {
+            log.warn("Allocation lock failed, marking transaction as FAILED: externalTxId={}", command.externalTxId)
+
+            val failed = saved.markFailed()
+            val result = transactionRepository.save(failed)
+
+            auditLogRepository.save(
+                AuditLog.create(
+                    operation = AuditOperation.TRANSACTION_SUBMISSION_FAILED,
+                    actor = "system",
+                    resourceId = result.id.value.toString(),
+                    status = AuditStatus.FAILURE,
+                    details = mapOf("error" to "Allocation lock failed"),
+                ),
+            )
+
+            return result
+        }
+
+        val fireblocksResult =
+            try {
                 fireblocksClient.submitTransaction(
                     FireblocksSubmitCommand(
                         externalTxId = command.externalTxId,
@@ -66,51 +99,59 @@ class TransactionSubmissionHandler(
                         note = command.note,
                     ),
                 )
+            } catch (e: Exception) {
+                log.error("Fireblocks transaction submission failed: externalTxId={}", command.externalTxId, e)
 
-            val submitted = saved.markSubmitted(fireblocksResult.id)
-            val result = transactionRepository.save(submitted)
+                try {
+                    fundAllocationService.release(allocation.allocationId)
+                } catch (releaseEx: Exception) {
+                    log.error("Failed to release allocation during submission failure: allocationId={}", allocation.allocationId, releaseEx)
+                }
 
-            eventPublisher.publish(
-                TransactionStatusChangedEvent(
-                    transactionId = result.id.value,
-                    externalTxId = result.externalTxId,
-                    previousStatus = TransactionStatus.CREATED.name,
-                    newStatus = TransactionStatus.SUBMITTED.name,
-                    fireblocksStatus = fireblocksResult.status,
-                    subStatus = fireblocksResult.subStatus,
-                    txHash = fireblocksResult.txHash,
-                    occurredAt = Instant.now(),
-                ),
-            )
+                val failed = saved.markFailed()
+                val result = transactionRepository.save(failed)
 
-            auditLogRepository.save(
-                AuditLog.create(
-                    operation = AuditOperation.TRANSACTION_SUBMITTED,
-                    actor = "system",
-                    resourceId = result.id.value.toString(),
-                    status = AuditStatus.SUCCESS,
-                    details = mapOf("fireblocksTransactionId" to fireblocksResult.id),
-                ),
-            )
+                auditLogRepository.save(
+                    AuditLog.create(
+                        operation = AuditOperation.TRANSACTION_SUBMISSION_FAILED,
+                        actor = "system",
+                        resourceId = result.id.value.toString(),
+                        status = AuditStatus.FAILURE,
+                        details = mapOf("error" to (e.message ?: "unknown")),
+                    ),
+                )
 
-            result
-        } catch (e: Exception) {
-            log.error("Fireblocks transaction submission failed: externalTxId={}", command.externalTxId, e)
+                return result
+            }
 
-            val failed = saved.markFailed()
-            val result = transactionRepository.save(failed)
+        val submitted = saved.markSubmitted(fireblocksResult.id)
+        val result = transactionRepository.save(submitted)
 
-            auditLogRepository.save(
-                AuditLog.create(
-                    operation = AuditOperation.TRANSACTION_SUBMISSION_FAILED,
-                    actor = "system",
-                    resourceId = result.id.value.toString(),
-                    status = AuditStatus.FAILURE,
-                    details = mapOf("error" to (e.message ?: "unknown")),
-                ),
-            )
+        fundAllocationService.consume(allocation.allocationId, result.id.value)
 
-            result
-        }
+        eventPublisher.publish(
+            TransactionStatusChangedEvent(
+                transactionId = result.id.value,
+                externalTxId = result.externalTxId,
+                previousStatus = TransactionStatus.CREATED.name,
+                newStatus = TransactionStatus.SUBMITTED.name,
+                fireblocksStatus = fireblocksResult.status,
+                subStatus = fireblocksResult.subStatus,
+                txHash = fireblocksResult.txHash,
+                occurredAt = Instant.now(),
+            ),
+        )
+
+        auditLogRepository.save(
+            AuditLog.create(
+                operation = AuditOperation.TRANSACTION_SUBMITTED,
+                actor = "system",
+                resourceId = result.id.value.toString(),
+                status = AuditStatus.SUCCESS,
+                details = mapOf("fireblocksTransactionId" to fireblocksResult.id),
+            ),
+        )
+
+        return result
     }
 }

@@ -20,3 +20,29 @@ data class FireblocksEstimateFeeCommand(
     val assetId: String,
     val amount: BigDecimal,
 )
+
+data class LockAllocationCommand(
+    val allocationId: String,
+    val vaultAccountId: String,
+    val assetId: String,
+    val amount: BigDecimal,
+) {
+    init {
+        require(allocationId.isNotBlank()) { "allocationId must not be blank" }
+        require(vaultAccountId.isNotBlank()) { "vaultAccountId must not be blank" }
+        require(assetId.isNotBlank()) { "assetId must not be blank" }
+        require(amount > BigDecimal.ZERO) { "amount must be positive" }
+    }
+}
+
+data class ReleaseAllocationCommand(
+    val allocationId: String,
+    val vaultAccountId: String,
+    val assetId: String,
+) {
+    init {
+        require(allocationId.isNotBlank()) { "allocationId must not be blank" }
+        require(vaultAccountId.isNotBlank()) { "vaultAccountId must not be blank" }
+        require(assetId.isNotBlank()) { "assetId must not be blank" }
+    }
+}

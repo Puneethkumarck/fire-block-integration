@@ -1,5 +1,6 @@
 package com.stablecoin.custody.fireblocks.domain.transaction
 
+import com.stablecoin.custody.fireblocks.domain.allocation.FundAllocationService
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
 import com.stablecoin.custody.fireblocks.domain.audit.AuditOperation
 import com.stablecoin.custody.fireblocks.domain.audit.AuditStatus
@@ -24,6 +25,7 @@ class TransactionStatusHandlerTest {
     private val eventPublisher: EventPublisher<TransactionStatusChangedEvent> = mockk()
     private val auditLogRepository: AuditLogRepository = mockk()
     private val stateMachine: StateMachine<TransactionStatus, Transaction> = mockk()
+    private val fundAllocationService: FundAllocationService = mockk()
 
     private val handler =
         TransactionStatusHandler(
@@ -31,6 +33,7 @@ class TransactionStatusHandlerTest {
             eventPublisher,
             auditLogRepository,
             stateMachine,
+            fundAllocationService,
         )
 
     @Test
@@ -109,6 +112,7 @@ class TransactionStatusHandlerTest {
         every { transactionRepository.save(any()) } returnsArgument 0
         every { eventPublisher.publish(any()) } just runs
         every { auditLogRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.releaseByTransactionId(any()) } just runs
 
         // when
         handler.handleStatusUpdate("fb-tx-004", "FAILED", "INSUFFICIENT_FUNDS", null)
@@ -245,5 +249,42 @@ class TransactionStatusHandlerTest {
         // when/then
         assertThatThrownBy { handler.handleStatusUpdate("fb-tx-inv", "COMPLETED", null, null) }
             .isInstanceOf(InvalidTransactionStateException::class.java)
+    }
+
+    @Test
+    fun `should release allocation when terminal FAILED status received`() {
+        // given
+        val transaction = aTransaction(status = TransactionStatus.PROCESSING, fireblocksTransactionId = "fb-tx-release")
+        every { transactionRepository.findByFireblocksTransactionId("fb-tx-release") } returns transaction
+        every { stateMachine.transition(transaction, TransactionStatus.FAILED) } returns TransactionStatus.FAILED
+        every { transactionRepository.findByIdForUpdate(transaction.id) } returns transaction
+        every { transactionRepository.save(any()) } returnsArgument 0
+        every { eventPublisher.publish(any()) } just runs
+        every { auditLogRepository.save(any()) } returnsArgument 0
+        every { fundAllocationService.releaseByTransactionId(any()) } just runs
+
+        // when
+        handler.handleStatusUpdate("fb-tx-release", "FAILED", null, null)
+
+        // then
+        verify { fundAllocationService.releaseByTransactionId(transaction.id.value) }
+    }
+
+    @Test
+    fun `should not release allocation when non-FAILED terminal status received`() {
+        // given
+        val transaction = aTransaction(status = TransactionStatus.CONFIRMING, fireblocksTransactionId = "fb-tx-confirm")
+        every { transactionRepository.findByFireblocksTransactionId("fb-tx-confirm") } returns transaction
+        every { stateMachine.transition(transaction, TransactionStatus.CONFIRMED) } returns TransactionStatus.CONFIRMED
+        every { transactionRepository.findByIdForUpdate(transaction.id) } returns transaction
+        every { transactionRepository.save(any()) } returnsArgument 0
+        every { eventPublisher.publish(any()) } just runs
+        every { auditLogRepository.save(any()) } returnsArgument 0
+
+        // when
+        handler.handleStatusUpdate("fb-tx-confirm", "COMPLETED", null, "0xhash")
+
+        // then
+        verify(exactly = 0) { fundAllocationService.releaseByTransactionId(any()) }
     }
 }

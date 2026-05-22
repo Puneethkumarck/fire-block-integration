@@ -1,5 +1,7 @@
 package com.stablecoin.custody.fireblocks.infrastructure.fireblocks.client.dto
 
+import java.math.BigDecimal
+
 data class CreateVaultAccountRequest(
     val name: String,
     val customerRefId: String,
@@ -91,4 +93,20 @@ data class OneTimeAddress(
 
 data class FireblocksCancelTransactionResponse(
     val success: Boolean,
+)
+
+data class LockAllocationRequest(
+    val allocationId: String,
+    val assetId: String,
+    val amount: BigDecimal,
+)
+
+data class ReleaseAllocationRequest(
+    val allocationId: String,
+    val assetId: String,
+)
+
+data class LockAllocationResponse(
+    val id: String,
+    val status: String,
 )

@@ -3,7 +3,9 @@ package com.stablecoin.custody.fireblocks.domain.transaction
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.post
+import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
+import com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.stablecoin.custody.fireblocks.AbstractIntegrationTest
 import com.stablecoin.custody.fireblocks.domain.audit.AuditLogRepository
@@ -75,6 +77,15 @@ class TransactionSubmissionHandlerIntegrationTest : AbstractIntegrationTest() {
         // given
         val vault = createActiveVault()
         wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-int-001","status":"LOCKED"}"""),
+                ),
+        )
+        wireMock.stubFor(
             post(urlPathEqualTo("/v1/transactions"))
                 .willReturn(
                     aResponse()
@@ -96,12 +107,23 @@ class TransactionSubmissionHandlerIntegrationTest : AbstractIntegrationTest() {
         // then
         assertThat(result.status).isEqualTo(TransactionStatus.SUBMITTED)
         assertThat(result.fireblocksTransactionId).isEqualTo("fb-tx-int-001")
+        wireMock.verify(1, postRequestedFor(urlPathMatching("/v1/vault/accounts/.+/lock_allocation")))
+        wireMock.verify(1, postRequestedFor(urlPathEqualTo("/v1/transactions")))
     }
 
     @Test
     fun `should handle idempotent submission`() {
         // given
         val vault = createActiveVault()
+        wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-int-002","status":"LOCKED"}"""),
+                ),
+        )
         wireMock.stubFor(
             post(urlPathEqualTo("/v1/transactions"))
                 .willReturn(
@@ -125,12 +147,23 @@ class TransactionSubmissionHandlerIntegrationTest : AbstractIntegrationTest() {
         // then
         assertThat(first.id).isEqualTo(second.id)
         assertThat(first.externalTxId).isEqualTo(second.externalTxId)
+        wireMock.verify(1, postRequestedFor(urlPathMatching("/v1/vault/accounts/.+/lock_allocation")))
+        wireMock.verify(1, postRequestedFor(urlPathEqualTo("/v1/transactions")))
     }
 
     @Test
     fun `should persist audit log`() {
         // given
         val vault = createActiveVault()
+        wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-int-003","status":"LOCKED"}"""),
+                ),
+        )
         wireMock.stubFor(
             post(urlPathEqualTo("/v1/transactions"))
                 .willReturn(
@@ -162,6 +195,22 @@ class TransactionSubmissionHandlerIntegrationTest : AbstractIntegrationTest() {
         // given
         val vault = createActiveVault()
         wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/lock_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .withBody("""{"id":"lock-int-004","status":"LOCKED"}"""),
+                ),
+        )
+        wireMock.stubFor(
+            post(urlPathMatching("/v1/vault/accounts/.+/release_allocation"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200),
+                ),
+        )
+        wireMock.stubFor(
             post(urlPathEqualTo("/v1/transactions"))
                 .willReturn(
                     aResponse()
@@ -186,5 +235,6 @@ class TransactionSubmissionHandlerIntegrationTest : AbstractIntegrationTest() {
         val persisted = transactionRepository.findByExternalTxId(command.externalTxId)
         assertThat(persisted).isNotNull
         assertThat(persisted!!.status).isEqualTo(TransactionStatus.FAILED)
+        wireMock.verify(1, postRequestedFor(urlPathMatching("/v1/vault/accounts/.+/release_allocation")))
     }
 }
