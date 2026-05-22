@@ -13,4 +13,6 @@ interface VaultRepository {
         cutoff: Instant,
         limit: Int,
     ): List<Vault>
+
+    fun findAllActive(): List<Vault>
 }

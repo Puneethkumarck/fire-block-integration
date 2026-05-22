@@ -12,4 +12,6 @@ interface WalletAssetRepository {
     ): WalletAsset?
 
     fun save(walletAsset: WalletAsset): WalletAsset
+
+    fun findByVaultId(vaultId: VaultId): List<WalletAsset>
 }

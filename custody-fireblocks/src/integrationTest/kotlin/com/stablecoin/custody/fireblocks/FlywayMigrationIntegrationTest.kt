@@ -35,6 +35,8 @@ class FlywayMigrationIntegrationTest : AbstractIntegrationTest() {
             "deposit_addresses",
             "flyway_schema_history",
             "fund_allocations",
+            "internal_balances",
+            "reconciliation_results",
             "shedlock",
             "supported_assets",
             "transactions",

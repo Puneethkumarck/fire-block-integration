@@ -33,6 +33,11 @@ internal class VaultRepositoryAdapter(
             .findPendingOlderThan(VaultStatus.PENDING, cutoff, PageRequest.ofSize(limit))
             .map { it.toDomain() }
 
+    override fun findAllActive(): List<Vault> =
+        jpaRepository
+            .findByStatus(VaultStatus.ACTIVE)
+            .map { it.toDomain() }
+
     fun Vault.toEntity() =
         VaultEntity(
             id = id.value,
