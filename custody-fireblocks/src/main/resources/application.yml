@@ -124,6 +124,11 @@ resilience4j:
         ignoreExceptions:
           - com.stablecoin.custody.fireblocks.domain.shared.CustodyException
 
+temporal:
+  enabled: ${TEMPORAL_ENABLED:false}
+  service-address: ${TEMPORAL_ADDRESS:localhost:7233}
+  namespace: ${TEMPORAL_NAMESPACE:custody-fireblocks}
+
 custody:
   polling:
     interval: 120000
