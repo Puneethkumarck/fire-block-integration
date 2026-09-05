@@ -64,7 +64,7 @@ dependencies {
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")
-    implementation(platform("software.amazon.awssdk:bom:2.44.7"))
+    implementation(platform("software.amazon.awssdk:bom:2.54.13"))
     implementation("software.amazon.awssdk:secretsmanager")
     implementation("io.jsonwebtoken:jjwt-api:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
@@ -84,7 +84,7 @@ dependencies {
     testFixturesImplementation("org.testcontainers:postgresql")
     testFixturesImplementation("org.testcontainers:kafka")
     testFixturesImplementation("org.testcontainers:localstack")
-    testFixturesImplementation(platform("software.amazon.awssdk:bom:2.44.7"))
+    testFixturesImplementation(platform("software.amazon.awssdk:bom:2.54.13"))
     testFixturesImplementation("software.amazon.awssdk:secretsmanager")
 
     integrationTestImplementation("org.testcontainers:junit-jupiter")
